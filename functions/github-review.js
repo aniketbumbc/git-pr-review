@@ -25,23 +25,28 @@ export const githubPullRequestReview = inngest.createFunction(
     ],
   },
   async ({ event, step }) => {
+    const { owner, repo, pull_number } = event.data;
     const pullRequestInfo = await step.run(
       'fetch-pull-request-info',
       async () => {
-        const { owner, repo, pull_number } = event.data;
-        console.log('fetching pull request info', owner, repo, pull_number);
-
         const { data } = await octokit.rest.pulls.get({
           owner,
           repo,
           pull_number,
         });
 
-        return data;
+        return {
+          title: data.title,
+          id: data.id,
+          diff_url: data.diff_url,
+          state: data.state,
+          comments: data.comments,
+          url: data.url,
+          commits: data.commits,
+          changed_files: data.changed_files,
+        };
       },
     );
-
-    console.log('pullRequestInfo', pullRequestInfo);
 
     if (!pullRequestInfo) {
       return {
@@ -59,15 +64,38 @@ export const githubPullRequestReview = inngest.createFunction(
       };
     }
 
-    return {
-      title: pullRequestInfo.title,
-      id: pullRequestInfo.id,
-      diff_url: pullRequestInfo.diff_url,
-      state: pullRequestInfo.state,
-      comments: pullRequestInfo.comments,
-      url: pullRequestInfo.url,
-      commits: pullRequestInfo.commits,
-      changed_files: pullRequestInfo.changed_files,
-    };
+    const changes = await step.run(
+      'fetch-changes-in-pull-request',
+      async () => {
+        const changesResult = await octokit.paginate(
+          octokit.rest.pulls.listFiles,
+          {
+            owner,
+            repo,
+            pull_number,
+            per_page: 100,
+          },
+        );
+        return changesResult.map((file) => {
+          return {
+            fileName: file.filename,
+            status: file.status,
+            changes: file.changes,
+            patch: file.patch,
+            additions: file.additions,
+            deletions: file.deletions,
+          };
+        });
+      },
+    );
+
+    if (changes.length === 0) {
+      return {
+        message: 'No changes in the pull request',
+        skip: true,
+        completed: false,
+      };
+    }
+    // Ai analysis of the changes
   },
 );
