@@ -1,0 +1,10 @@
+1. Fetch PR Info
+2. Repo URL and PR Number
+3. Title, user, state, draft, commit about pr. 
+4. If PR 404 return not found. 
+5. If PR found  check If PR not  open  return  pr not open. 
+6. If Open fetch file changes 
+7. If no changes then exit return
+8. If changes then review from AI
+9. AI brings comment based on PR.
+10.Add comment on Github.
