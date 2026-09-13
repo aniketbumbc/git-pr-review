@@ -1,7 +1,9 @@
+import 'dotenv/config';
 import express from 'express';
 
 import { serve } from 'inngest/express';
-import { inngest, functions } from './inggest/client.js';
+import { inngest } from './inggest/client.js';
+import { functions } from './functions/index.js';
 
 const app = express();
 app.use(express.json());

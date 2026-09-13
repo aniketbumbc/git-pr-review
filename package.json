@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --watch index.js",
     "start-inngest": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest"
   },
   "keywords": [],
@@ -17,8 +18,10 @@
     "@types/node": "^22.20.2"
   },
   "dependencies": {
+    "@octokit/rest": "^22.0.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "inngest": "^4.20.0"
+    "inngest": "^4.20.0",
+    "octokit": "^5.0.5"
   }
 }
