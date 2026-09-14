@@ -1,5 +1,7 @@
 import { inngest } from '../inggest/client.js';
 import { octokit } from '../lib/github.js';
+import { run } from '@openai/agents';
+import { prReviewAgent } from '../agents/github-pr-review-agents.js';
 
 /**
  * Event:{
@@ -44,6 +46,7 @@ export const githubPullRequestReview = inngest.createFunction(
           url: data.url,
           commits: data.commits,
           changed_files: data.changed_files,
+          head: { ref: data.head.ref, sha: data.head.sha },
         };
       },
     );
@@ -97,5 +100,50 @@ export const githubPullRequestReview = inngest.createFunction(
       };
     }
     // Ai analysis of the changes
+
+    const aiAnalysisResult = await step.run(
+      'ai-analysis-of-changes',
+      async () => {
+        const llmResult = await run(
+          prReviewAgent,
+          `
+        Pull request information:
+        ${JSON.stringify(pullRequestInfo, null, 2)}
+
+        Changes in the pull request:
+        ${JSON.stringify(changes, null, 2)}
+        `,
+        );
+        return {
+          result: llmResult.finalOutput,
+        };
+      },
+    );
+
+    // write comment on the pull request
+
+    await step.run('post-comment', async () => {
+      const result = await octokit.rest.pulls.createReview({
+        owner,
+        repo,
+        pull_number,
+        event: 'COMMENT',
+        commit_id: pullRequestInfo.head.sha,
+        body: `
+        ${aiAnalysisResult.result.content}
+        Critical fixes:
+        ${aiAnalysisResult.result.critical_fixes?.join('\n')}
+        Suggestions:
+        ${aiAnalysisResult.result.suggestions?.join('\n')}
+        `,
+      });
+    });
+
+    return {
+      message: 'Pull request reviewed successfully',
+      skip: false,
+      completed: true,
+      result: aiAnalysisResult.result,
+    };
   },
 );
