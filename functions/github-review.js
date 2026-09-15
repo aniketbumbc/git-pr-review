@@ -3,20 +3,6 @@ import { octokit } from '../lib/github.js';
 import { run } from '@openai/agents';
 import { prReviewAgent } from '../agents/github-pr-review-agents.js';
 
-/**
- * Event:{
- * data:{
- * "owner":"aniketbumbc",
- * "repo":"inngest-demo",
- * "pull_number":1,
- *
- * }
- *
- * }
- *
- *
- */
-
 export const githubPullRequestReview = inngest.createFunction(
   {
     id: 'github-pull-request-review',
