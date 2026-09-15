@@ -1,5 +1,6 @@
 import { inngest } from '../inggest/client.js';
 import { octokit } from '../lib/github.js';
+import { db } from '../lib/db.js';
 import { run } from '@openai/agents';
 import { prReviewAgent } from '../agents/github-pr-review-agents.js';
 
@@ -123,6 +124,28 @@ export const githubPullRequestReview = inngest.createFunction(
         ${aiAnalysisResult.result.suggestions?.join('\n')}
         `,
       });
+    });
+
+    await step.run('save-review-to-db', async () => {
+      await db.query(
+        `INSERT INTO reviews
+         (owner, repo, pull_number, pr_title, head_sha, changed_files_count,
+          commits_count, verdict, content, critical_fixes, suggestions)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [
+          owner,
+          repo,
+          pull_number,
+          pullRequestInfo.title,
+          pullRequestInfo.head.sha,
+          pullRequestInfo.changed_files,
+          pullRequestInfo.commits,
+          aiAnalysisResult.result.event,
+          aiAnalysisResult.result.content,
+          JSON.stringify(aiAnalysisResult.result.critical_fixes ?? []),
+          JSON.stringify(aiAnalysisResult.result.suggestions ?? []),
+        ],
+      );
     });
 
     return {
