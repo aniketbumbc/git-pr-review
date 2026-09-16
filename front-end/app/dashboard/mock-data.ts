@@ -1,98 +1,53 @@
-export type Verdict = "APPROVE" | "REQUEST_CHANGES" | "COMMENT" | "PENDING";
+import type { ApiReview, VerdictFilter } from "@/app/lib/api";
 
-export type ReviewRow = {
+export type Verdict = VerdictFilter | "PENDING";
+
+// The raw shape a review comes back in from GET /reviews (camelCased columns).
+export type ReviewRow = ApiReview;
+
+// The shape the table actually renders. A "PENDING" row never comes from the
+// API — it only exists client-side, optimistically inserted while a
+// triggered review is still running (see TriggerPanel).
+export type ReviewViewModel = {
   id: string;
   title: string;
   slug: string;
-  author: string;
+  author?: string;
   verdict: Verdict;
   critical: number | "—";
   run: string;
   when: string;
 };
 
-export const reviews: ReviewRow[] = [
-  {
-    id: "r1",
-    title: "Add durable retry to the PR review pipeline",
-    slug: "acme/checkout-api #412",
-    author: "@dbraga",
-    verdict: "REQUEST_CHANGES",
-    critical: 3,
-    run: "01J9X4K2MB",
-    when: "12 min ago",
-  },
-  {
-    id: "r2",
-    title: "Split webhook handler from event dispatch",
-    slug: "acme/checkout-api #418",
-    author: "@mfalk",
-    verdict: "PENDING",
-    critical: "—",
-    run: "01J9X5QT7F",
-    when: "running",
-  },
-  {
-    id: "r3",
-    title: "Cache PR info by head SHA",
-    slug: "acme/web #1104",
-    author: "@rnovak",
-    verdict: "APPROVE",
-    critical: 0,
-    run: "01J9X2F0YC",
-    when: "48 min ago",
-  },
-  {
-    id: "r4",
-    title: "Bump inngest to 3.22 and pin the model",
-    slug: "acme/infra #88",
-    author: "@dbraga",
-    verdict: "COMMENT",
-    critical: 0,
-    run: "01J9X1BB3D",
-    when: "2 hours ago",
-  },
-  {
-    id: "r5",
-    title: "Fan out specialist agents for security review",
-    slug: "acme/checkout-api #406",
-    author: "@lvasquez",
-    verdict: "REQUEST_CHANGES",
-    critical: 5,
-    run: "01J9WZ8HKM",
-    when: "5 hours ago",
-  },
-  {
-    id: "r6",
-    title: "Drop unused step from review function",
-    slug: "acme/web #1098",
-    author: "@mfalk",
-    verdict: "APPROVE",
-    critical: 0,
-    run: "01J9WY1PPA",
-    when: "yesterday",
-  },
-  {
-    id: "r7",
-    title: "Add debounce window to push trigger",
-    slug: "acme/infra #85",
-    author: "@rnovak",
-    verdict: "REQUEST_CHANGES",
-    critical: 2,
-    run: "01J9WQ4TTC",
-    when: "yesterday",
-  },
-  {
-    id: "r8",
-    title: "Log prompt hash on every run",
-    slug: "acme/checkout-api #399",
-    author: "@dbraga",
-    verdict: "APPROVE",
-    critical: 0,
-    run: "01J9WK0ZZ1",
-    when: "2 days ago",
-  },
-];
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.round(diffMs / 60_000);
+
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin} min ago`;
+
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+  const diffDay = Math.round(diffHr / 24);
+  if (diffDay === 1) return "yesterday";
+  return `${diffDay} days ago`;
+}
+
+// `reviews` has no PR-author column — `owner` is the GitHub org/repo owner,
+// not who opened the pull request — so author is left blank until the
+// schema tracks it.
+export function toReviewViewModel(row: ReviewRow): ReviewViewModel {
+  return {
+    id: row.id,
+    title: row.prTitle,
+    slug: `${row.owner}/${row.repo} #${row.pullNumber}`,
+    verdict: row.verdict,
+    critical: row.criticalFixes ? row.criticalFixes.length : "—",
+    run: row.headSha.slice(0, 10),
+    when: formatRelativeTime(row.createdAt),
+  };
+}
 
 export const stats = [
   { label: "Reviews · 7 days", value: "38", note: "+6 vs last week" },
@@ -145,3 +100,15 @@ export const repoOptions = [
 export const dateRangeOptions = ["Last 7 days", "Last 30 days", "All time"];
 
 export const verdictFilters = ["All", "Request changes", "Approve", "Comment"] as const;
+
+export const FILTER_TO_VERDICT: Record<
+  (typeof verdictFilters)[number],
+  VerdictFilter | null
+> = {
+  All: null,
+  "Request changes": "REQUEST_CHANGES",
+  Approve: "APPROVE",
+  Comment: "COMMENT",
+};
+
+export const REVIEWS_PAGE_SIZE = 20;

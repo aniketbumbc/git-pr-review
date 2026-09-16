@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PlayIcon, RefreshIcon, SearchIcon } from "@/app/components/icons";
+import { fetchReviews, type ApiReview, type ReviewsEnvelope } from "@/app/lib/api";
 import {
+  FILTER_TO_VERDICT,
+  REVIEWS_PAGE_SIZE,
   dateRangeOptions,
   repoOptions,
-  reviews,
   stats,
+  toReviewViewModel,
   verdictFilters,
-  type Verdict,
 } from "./mock-data";
 import { StatCard } from "./stat-card";
 import { TriggerPanel } from "./trigger-panel";
@@ -16,28 +18,149 @@ import { VerdictBadge } from "./verdict-badge";
 import { LiveActivityFeed } from "./live-activity-feed";
 import { VerdictMixCard } from "./verdict-mix-card";
 
-const FILTER_TO_VERDICT: Record<(typeof verdictFilters)[number], Verdict | null> = {
-  All: null,
-  "Request changes": "REQUEST_CHANGES",
-  Approve: "APPROVE",
-  Comment: "COMMENT",
+const SEARCH_DEBOUNCE_MS = 300;
+
+function sinceFromDateRange(range: (typeof dateRangeOptions)[number]): string | undefined {
+  if (range === "Last 7 days") {
+    return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  if (range === "Last 30 days") {
+    return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  return undefined;
+}
+
+type DashboardViewProps = {
+  initialReviews: ApiReview[];
+  initialTotal: number;
+  initialLimit: number;
+  initialOffset: number;
+  initialFilter: (typeof verdictFilters)[number];
+  initialSearch: string;
+  initialRepo: string;
 };
 
-export function DashboardView() {
-  const [triggerOpen, setTriggerOpen] = useState(false);
-  const [filter, setFilter] = useState<(typeof verdictFilters)[number]>("All");
-  const [search, setSearch] = useState("");
+export function DashboardView({
+  initialReviews,
+  initialTotal,
+  initialLimit,
+  initialOffset,
+  initialFilter,
+  initialSearch,
+  initialRepo,
+}: DashboardViewProps) {
+  const trimmedInitialSearch = initialSearch.trim();
 
-  const rows = useMemo(() => {
-    const targetVerdict = FILTER_TO_VERDICT[filter];
-    const q = search.trim().toLowerCase();
-    return reviews.filter((r) => {
-      const matchesVerdict = targetVerdict === null || r.verdict === targetVerdict;
-      const matchesSearch =
-        q === "" || r.title.toLowerCase().includes(q) || r.author.toLowerCase().includes(q);
-      return matchesVerdict && matchesSearch;
-    });
-  }, [filter, search]);
+  const [triggerOpen, setTriggerOpen] = useState(false);
+  const [filter, setFilter] = useState<(typeof verdictFilters)[number]>(initialFilter);
+  const [searchInput, setSearchInput] = useState(trimmedInitialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(trimmedInitialSearch);
+  const [repo, setRepo] = useState(initialRepo);
+  // The initial server render never applies a date filter (see page.tsx), so
+  // "All time" is the value that actually matches what's on screen at mount.
+  const [dateRange, setDateRange] = useState<(typeof dateRangeOptions)[number]>("All time");
+
+  const [rows, setRows] = useState(() => initialReviews.map(toReviewViewModel));
+  const [total, setTotal] = useState(initialTotal);
+  const [limit, setLimit] = useState(initialLimit);
+  const [offset, setOffset] = useState(initialOffset);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isFirstRun = useRef(true);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  const loadReviews = useCallback(
+    (
+      queryOffset: number,
+      queryLimit: number = REVIEWS_PAGE_SIZE,
+      signal?: AbortSignal,
+    ): Promise<ReviewsEnvelope> => {
+      return fetchReviews(
+        {
+          limit: queryLimit,
+          offset: queryOffset,
+          repo: repo === repoOptions[0] ? undefined : repo,
+          verdict: FILTER_TO_VERDICT[filter] ?? undefined,
+          search: debouncedSearch || undefined,
+          since: sinceFromDateRange(dateRange),
+        },
+        { signal },
+      );
+    },
+    [repo, filter, debouncedSearch, dateRange],
+  );
+
+  // Re-query from page 1 whenever a filter dimension changes. Skips the
+  // mount-time run since the server-rendered rows already match this state.
+  useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    loadReviews(0, REVIEWS_PAGE_SIZE, controller.signal)
+      .then((envelope) => {
+        setRows(envelope.data.map(toReviewViewModel));
+        setTotal(envelope.total);
+        setLimit(envelope.limit);
+        setOffset(envelope.offset);
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : "Failed to load reviews");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [loadReviews]);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const envelope = await loadReviews(offset + limit, limit);
+      setRows((prev) => [...prev, ...envelope.data.map(toReviewViewModel)]);
+      setTotal(envelope.total);
+      setOffset(envelope.offset);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load more reviews");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  // Re-fetches exactly what's currently on screen (same filters, same row
+  // count) without resetting scroll position, filters, or pagination.
+  async function handleRefresh() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const windowSize = Math.min(100, Math.max(rows.length, limit));
+      const envelope = await loadReviews(0, windowSize);
+      setRows(envelope.data.map(toReviewViewModel));
+      setTotal(envelope.total);
+      setOffset(envelope.offset);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to refresh reviews");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const hasMore = offset + rows.length < total;
 
   return (
     <div className="mx-auto max-w-[1240px] px-8 pb-16">
@@ -51,9 +174,11 @@ export function DashboardView() {
         <div className="flex gap-2">
           <button
             type="button"
-            className="flex h-9 items-center gap-1.5 rounded-md border border-divider px-3.5 text-[13px] text-fg/80 transition-colors hover:border-fg/25"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex h-9 items-center gap-1.5 rounded-md border border-divider px-3.5 text-[13px] text-fg/80 transition-colors hover:border-fg/25 disabled:opacity-50"
           >
-            <RefreshIcon className="h-[15px] w-[15px]" />
+            <RefreshIcon className={`h-[15px] w-[15px] ${refreshing ? "animate-spin" : ""}`} />
             Refresh
           </button>
           <button
@@ -82,13 +207,17 @@ export function DashboardView() {
               <SearchIcon className="pointer-events-none absolute left-2.5 top-[9px] h-[15px] w-[15px] text-fg/40" />
               <input
                 type="text"
-                placeholder="Search PR title or author"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search PR title"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="h-9 w-full rounded-md border border-divider bg-bg pl-8 pr-2.5 text-[13px] outline-none focus:border-accent-500"
               />
             </div>
-            <select className="h-9 flex-[0_1_190px] rounded-md border border-divider bg-bg px-2.5 text-[13px] outline-none">
+            <select
+              value={repo}
+              onChange={(e) => setRepo(e.target.value)}
+              className="h-9 flex-[0_1_190px] rounded-md border border-divider bg-bg px-2.5 text-[13px] outline-none"
+            >
               {repoOptions.map((o) => (
                 <option key={o}>{o}</option>
               ))}
@@ -109,12 +238,24 @@ export function DashboardView() {
                 </button>
               ))}
             </div>
-            <select className="h-9 flex-[0_1_140px] rounded-md border border-divider bg-bg px-2.5 text-[13px] outline-none">
+            <select
+              value={dateRange}
+              onChange={(e) =>
+                setDateRange(e.target.value as (typeof dateRangeOptions)[number])
+              }
+              className="h-9 flex-[0_1_140px] rounded-md border border-divider bg-bg px-2.5 text-[13px] outline-none"
+            >
               {dateRangeOptions.map((o) => (
                 <option key={o}>{o}</option>
               ))}
             </select>
           </div>
+
+          {error && (
+            <div className="mb-2.5 rounded-md border border-warn-400 px-3 py-2 text-[12.5px] text-warn-300">
+              {error}
+            </div>
+          )}
 
           <table className="w-full border-collapse text-left">
             <thead>
@@ -126,7 +267,7 @@ export function DashboardView() {
                 <th className="py-2 text-right font-normal">Reviewed</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className={loading ? "opacity-50" : undefined}>
               {rows.map((r) => (
                 <tr
                   key={r.id}
@@ -136,7 +277,7 @@ export function DashboardView() {
                     <div className="flex flex-col gap-0.5">
                       <span className="text-[13.5px] text-fg/90">{r.title}</span>
                       <span className="font-mono text-[11px] text-fg/40">
-                        {r.slug} · {r.author}
+                        {r.author ? `${r.slug} · ${r.author}` : r.slug}
                       </span>
                     </div>
                   </td>
@@ -148,7 +289,7 @@ export function DashboardView() {
                   <td className="py-2.5 text-right text-xs text-fg/45">{r.when}</td>
                 </tr>
               ))}
-              {rows.length === 0 && (
+              {rows.length === 0 && !loading && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-[13px] text-fg/40">
                     No reviews match this filter.
@@ -160,14 +301,18 @@ export function DashboardView() {
 
           <div className="mt-4 flex items-center gap-3 text-xs text-fg/45">
             <span>
-              Showing {rows.length} of 214 reviews
+              Showing {rows.length} of {total} reviews
             </span>
-            <button
-              type="button"
-              className="ml-auto rounded-md border border-divider px-3 py-1.5 text-[12.5px] text-fg/70 transition-colors hover:border-fg/25"
-            >
-              Load more
-            </button>
+            {hasMore && (
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="ml-auto rounded-md border border-divider px-3 py-1.5 text-[12.5px] text-fg/70 transition-colors hover:border-fg/25 disabled:opacity-50"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
         </div>
 
