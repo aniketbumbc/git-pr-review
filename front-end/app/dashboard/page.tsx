@@ -1,8 +1,9 @@
 import { NavBar } from "@/app/components/nav-bar";
-import { fetchReviews } from "@/app/lib/api";
+import { fetchReviewStats, fetchReviews } from "@/app/lib/api";
 import {
   FILTER_TO_VERDICT,
   REVIEWS_PAGE_SIZE,
+  buildStats,
   repoOptions,
   verdictFilters,
 } from "./mock-data";
@@ -42,13 +43,16 @@ export default async function DashboardPage({
   const page = parsePage(params.page);
   const offset = (page - 1) * REVIEWS_PAGE_SIZE;
 
-  const initialReviews = await fetchReviews({
-    limit: REVIEWS_PAGE_SIZE,
-    offset,
-    repo: repo === repoOptions[0] ? undefined : repo,
-    verdict: FILTER_TO_VERDICT[filter] ?? undefined,
-    search,
-  });
+  const [initialReviews, reviewStats] = await Promise.all([
+    fetchReviews({
+      limit: REVIEWS_PAGE_SIZE,
+      offset,
+      repo: repo === repoOptions[0] ? undefined : repo,
+      verdict: FILTER_TO_VERDICT[filter] ?? undefined,
+      search,
+    }),
+    fetchReviewStats(),
+  ]);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -61,6 +65,7 @@ export default async function DashboardPage({
         initialFilter={filter}
         initialSearch={params.search ?? ""}
         initialRepo={repo}
+        stats={buildStats(reviewStats)}
       />
     </div>
   );

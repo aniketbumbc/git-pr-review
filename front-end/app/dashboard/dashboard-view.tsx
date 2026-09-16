@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PlayIcon, RefreshIcon, SearchIcon } from "@/app/components/icons";
+import { PlayIcon, RefreshIcon, SearchIcon, WarningIcon } from "@/app/components/icons";
 import { fetchReviews, type ApiReview, type ReviewsEnvelope } from "@/app/lib/api";
 import {
   FILTER_TO_VERDICT,
   REVIEWS_PAGE_SIZE,
   dateRangeOptions,
   repoOptions,
-  stats,
   toReviewViewModel,
   verdictFilters,
+  type DashboardStat,
 } from "./mock-data";
 import { StatCard } from "./stat-card";
 import { TriggerPanel } from "./trigger-panel";
@@ -19,6 +19,32 @@ import { LiveActivityFeed } from "./live-activity-feed";
 import { VerdictMixCard } from "./verdict-mix-card";
 
 const SEARCH_DEBOUNCE_MS = 300;
+const SKELETON_ROW_COUNT = 6;
+
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-white/[0.06]">
+      <td className="py-2.5">
+        <div className="flex flex-col gap-1.5">
+          <div className="h-3 w-3/5 animate-pulse rounded bg-white/10" />
+          <div className="h-2.5 w-2/5 animate-pulse rounded bg-white/5" />
+        </div>
+      </td>
+      <td className="py-2.5">
+        <div className="h-4 w-20 animate-pulse rounded bg-white/10" />
+      </td>
+      <td className="py-2.5 text-right">
+        <div className="ml-auto h-3 w-6 animate-pulse rounded bg-white/10" />
+      </td>
+      <td className="py-2.5">
+        <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
+      </td>
+      <td className="py-2.5 text-right">
+        <div className="ml-auto h-3 w-14 animate-pulse rounded bg-white/10" />
+      </td>
+    </tr>
+  );
+}
 
 function sinceFromDateRange(range: (typeof dateRangeOptions)[number]): string | undefined {
   if (range === "Last 7 days") {
@@ -38,6 +64,7 @@ type DashboardViewProps = {
   initialFilter: (typeof verdictFilters)[number];
   initialSearch: string;
   initialRepo: string;
+  stats: DashboardStat[];
 };
 
 export function DashboardView({
@@ -48,6 +75,7 @@ export function DashboardView({
   initialFilter,
   initialSearch,
   initialRepo,
+  stats,
 }: DashboardViewProps) {
   const trimmedInitialSearch = initialSearch.trim();
 
@@ -252,8 +280,9 @@ export function DashboardView({
           </div>
 
           {error && (
-            <div className="mb-2.5 rounded-md border border-warn-400 px-3 py-2 text-[12.5px] text-warn-300">
-              {error}
+            <div className="mb-2.5 flex items-center gap-2 rounded-md border border-warn-400 bg-warn-400/10 px-3 py-2.5 text-[12.5px] text-warn-300">
+              <WarningIcon className="h-4 w-4 flex-none" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -267,29 +296,36 @@ export function DashboardView({
                 <th className="py-2 text-right font-normal">Reviewed</th>
               </tr>
             </thead>
-            <tbody className={loading ? "opacity-50" : undefined}>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-b border-white/[0.06] transition-colors hover:bg-white/[0.02]"
-                >
-                  <td className="py-2.5">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[13.5px] text-fg/90">{r.title}</span>
-                      <span className="font-mono text-[11px] text-fg/40">
-                        {r.author ? `${r.slug} · ${r.author}` : r.slug}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-2.5">
-                    <VerdictBadge verdict={r.verdict} />
-                  </td>
-                  <td className="py-2.5 text-right font-mono text-[12.5px]">{r.critical}</td>
-                  <td className="py-2.5 font-mono text-[11.5px] text-fg/55">{r.run}</td>
-                  <td className="py-2.5 text-right text-xs text-fg/45">{r.when}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && !loading && (
+            <tbody>
+              {loading &&
+                Array.from({ length: rows.length || SKELETON_ROW_COUNT }).map((_, i) => (
+                  <SkeletonRow key={i} />
+                ))}
+              {!loading &&
+                rows.map((r) => (
+                  <tr
+                    key={r.id}
+                    className="border-b border-white/[0.06] transition-colors hover:bg-white/[0.02]"
+                  >
+                    <td className="py-2.5">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[13.5px] text-fg/90">{r.title}</span>
+                        <span className="font-mono text-[11px] text-fg/40">
+                          {r.author ? `${r.slug} · ${r.author}` : r.slug}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-2.5">
+                      <VerdictBadge verdict={r.verdict} />
+                    </td>
+                    <td className="py-2.5 text-right font-mono text-[12.5px]">{r.critical}</td>
+                    <td className="py-2.5 font-mono text-[11.5px] text-fg/55">{r.run}</td>
+                    <td className="py-2.5 text-right text-xs text-fg/45">{r.when}</td>
+                  </tr>
+                ))}
+              {loadingMore &&
+                Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={`more-${i}`} />)}
+              {!loading && !loadingMore && rows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-[13px] text-fg/40">
                     No reviews match this filter.

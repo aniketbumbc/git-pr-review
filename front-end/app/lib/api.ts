@@ -45,6 +45,13 @@ export type TriggerReviewResult = {
   eventId: string;
 };
 
+export type ReviewStats = {
+  reviewsLast7Days: number;
+  reviewsPrev7Days: number;
+  avgCriticalFixesLast7Days: number;
+  avgCriticalFixesPrev7Days: number;
+};
+
 export class ApiError extends Error {
   status: number;
   errors?: unknown;
@@ -102,6 +109,11 @@ export async function fetchReviews(
   const res = await fetch(`${getApiBaseUrl()}/reviews${qs ? `?${qs}` : ""}`, init);
 
   return parseJsonResponse<ReviewsEnvelope>(res);
+}
+
+export async function fetchReviewStats(init?: RequestInit): Promise<ReviewStats> {
+  const res = await fetch(`${getApiBaseUrl()}/reviews/stats`, init);
+  return parseJsonResponse<ReviewStats>(res);
 }
 
 export async function triggerReview(

@@ -116,6 +116,29 @@ app.get('/reviews', async (req, res) => {
   });
 });
 
+app.get('/reviews/stats', async (req, res) => {
+  const { rows } = await db.query(`
+    SELECT
+      COUNT(*) FILTER (
+        WHERE created_at >= now() - interval '7 days'
+      )::int AS reviews_last_7_days,
+      COUNT(*) FILTER (
+        WHERE created_at >= now() - interval '14 days'
+          AND created_at < now() - interval '7 days'
+      )::int AS reviews_prev_7_days,
+      COALESCE(AVG(jsonb_array_length(critical_fixes::jsonb)) FILTER (
+        WHERE created_at >= now() - interval '7 days'
+      ), 0)::float AS avg_critical_fixes_last_7_days,
+      COALESCE(AVG(jsonb_array_length(critical_fixes::jsonb)) FILTER (
+        WHERE created_at >= now() - interval '14 days'
+          AND created_at < now() - interval '7 days'
+      ), 0)::float AS avg_critical_fixes_prev_7_days
+    FROM reviews
+  `);
+
+  res.json(toCamelCase(rows[0]));
+});
+
 app.get('/reviews/:id', async (req, res) => {
   const { rows } = await db.query('SELECT * FROM reviews WHERE id = $1', [
     req.params.id,

@@ -1,4 +1,4 @@
-import type { ApiReview, VerdictFilter } from "@/app/lib/api";
+import type { ApiReview, ReviewStats, VerdictFilter } from "@/app/lib/api";
 
 export type Verdict = VerdictFilter | "PENDING";
 
@@ -49,12 +49,59 @@ export function toReviewViewModel(row: ReviewRow): ReviewViewModel {
   };
 }
 
-export const stats = [
-  { label: "Reviews · 7 days", value: "38", note: "+6 vs last week" },
-  { label: "Avg critical / PR", value: "1.8", note: "down from 2.4" },
-  { label: "Runs in flight", value: "2", note: "1 retrying" },
-  { label: "Step success", value: "96.4%", note: "6 retries today" },
-];
+export type DashboardStat = {
+  label: string;
+  value: string;
+  note: string;
+};
+
+// No in-flight-run tracking or step telemetry is persisted anywhere in the
+// `reviews` table (a row only exists once a run finishes), so these two stay
+// mocked until the backend adds that instrumentation.
+const RUNS_IN_FLIGHT_STAT: DashboardStat = {
+  label: "Runs in flight",
+  value: "2",
+  note: "1 retrying",
+};
+const STEP_SUCCESS_STAT: DashboardStat = {
+  label: "Step success",
+  value: "96.4%",
+  note: "6 retries today",
+};
+
+export function buildStats(reviewStats: ReviewStats): DashboardStat[] {
+  const reviewsDelta = reviewStats.reviewsLast7Days - reviewStats.reviewsPrev7Days;
+  const reviewsNote =
+    reviewsDelta === 0
+      ? "flat vs last week"
+      : `${reviewsDelta > 0 ? "+" : ""}${reviewsDelta} vs last week`;
+
+  const avgCritical = reviewStats.avgCriticalFixesLast7Days;
+  const avgCriticalPrev = reviewStats.avgCriticalFixesPrev7Days;
+  const avgCriticalNote =
+    reviewStats.reviewsPrev7Days === 0
+      ? "no data from last week"
+      : avgCritical === avgCriticalPrev
+        ? "flat vs last week"
+        : avgCritical < avgCriticalPrev
+          ? `down from ${avgCriticalPrev.toFixed(1)}`
+          : `up from ${avgCriticalPrev.toFixed(1)}`;
+
+  return [
+    {
+      label: "Reviews · 7 days",
+      value: String(reviewStats.reviewsLast7Days),
+      note: reviewsNote,
+    },
+    {
+      label: "Avg critical / PR",
+      value: avgCritical.toFixed(1),
+      note: avgCriticalNote,
+    },
+    RUNS_IN_FLIGHT_STAT,
+    STEP_SUCCESS_STAT,
+  ];
+}
 
 export const feed = [
   {
