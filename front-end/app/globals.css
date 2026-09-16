@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #12141c;
+  --color-surface: #1a1d29;
+  --color-divider: #262a3a;
+  --color-text: #e7e8ee;
+
+  --color-accent-100: #eefaf1;
+  --color-accent-200: #d6f3e0;
+  --color-accent-300: #b0e7c6;
+  --color-accent-400: #7fd6a0;
+  --color-accent-500: #4fbb7d;
+  --color-accent-600: #369a63;
+  --color-accent-700: #27764c;
+  --color-accent-800: #1d5537;
+  --color-accent-900: #163524;
+
+  --color-warn-100: #fbe9dc;
+  --color-warn-200: #f3cdb0;
+  --color-warn-300: #e3a273;
+  --color-warn-400: #c9601f;
+  --color-warn-500: #ac4f18;
+  --color-warn-600: #8d3f12;
+  --color-warn-700: #6d300d;
+  --color-warn-800: #4d220a;
+  --color-warn-900: #2f1506;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-divider: var(--color-divider);
+  --color-fg: var(--color-text);
+
+  --color-accent-100: var(--color-accent-100);
+  --color-accent-200: var(--color-accent-200);
+  --color-accent-300: var(--color-accent-300);
+  --color-accent-400: var(--color-accent-400);
+  --color-accent-500: var(--color-accent-500);
+  --color-accent-600: var(--color-accent-600);
+  --color-accent-700: var(--color-accent-700);
+  --color-accent-800: var(--color-accent-800);
+  --color-accent-900: var(--color-accent-900);
+
+  --color-warn-100: var(--color-warn-100);
+  --color-warn-200: var(--color-warn-200);
+  --color-warn-300: var(--color-warn-300);
+  --color-warn-400: var(--color-warn-400);
+  --color-warn-500: var(--color-warn-500);
+  --color-warn-600: var(--color-warn-600);
+  --color-warn-700: var(--color-warn-700);
+  --color-warn-800: var(--color-warn-800);
+  --color-warn-900: var(--color-warn-900);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
