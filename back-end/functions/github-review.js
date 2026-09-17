@@ -127,26 +127,56 @@ export const githubPullRequestReview = inngest.createFunction(
     });
 
     await step.run('save-review-to-db', async () => {
-      await db.query(
-        `INSERT INTO reviews
-         (owner, repo, pull_number, pr_title, head_sha, changed_files_count,
-          commits_count, verdict, content, critical_fixes, suggestions, event_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-        [
-          owner,
-          repo,
-          pull_number,
-          pullRequestInfo.title,
-          pullRequestInfo.head.sha,
-          pullRequestInfo.changed_files,
-          pullRequestInfo.commits,
-          aiAnalysisResult.result.event,
-          aiAnalysisResult.result.content,
-          JSON.stringify(aiAnalysisResult.result.critical_fixes ?? []),
-          JSON.stringify(aiAnalysisResult.result.suggestions ?? []),
-          event.id,
-        ],
-      );
+      const client = await db.connect();
+      try {
+        await client.query('BEGIN');
+
+        const { rows } = await client.query(
+          `INSERT INTO reviews
+           (owner, repo, pull_number, pr_title, head_sha, changed_files_count,
+            commits_count, verdict, content, critical_fixes, suggestions, event_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+           RETURNING id`,
+          [
+            owner,
+            repo,
+            pull_number,
+            pullRequestInfo.title,
+            pullRequestInfo.head.sha,
+            pullRequestInfo.changed_files,
+            pullRequestInfo.commits,
+            aiAnalysisResult.result.event,
+            aiAnalysisResult.result.content,
+            JSON.stringify(aiAnalysisResult.result.critical_fixes ?? []),
+            JSON.stringify(aiAnalysisResult.result.suggestions ?? []),
+            event.id,
+          ],
+        );
+        const reviewId = rows[0].id;
+
+        for (const file of changes) {
+          await client.query(
+            `INSERT INTO review_files
+             (review_id, path, status, additions, deletions, patch)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [
+              reviewId,
+              file.fileName,
+              file.status,
+              file.additions,
+              file.deletions,
+              file.patch ?? null,
+            ],
+          );
+        }
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
     });
 
     return {

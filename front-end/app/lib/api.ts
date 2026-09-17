@@ -48,6 +48,18 @@ export type RunProgress = {
   steps: RunStep[];
 };
 
+export type ApiReviewFile = {
+  path: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  patch: string | null;
+};
+
+export type ReviewFilesEnvelope = {
+  data: ApiReviewFile[];
+};
+
 export type ReviewsEnvelope = {
   data: ApiReview[];
   total: number;
@@ -157,6 +169,14 @@ export async function fetchReviewRun(
 ): Promise<RunProgress> {
   const res = await fetch(`${getApiBaseUrl()}/reviews/${id}/run`, init);
   return parseJsonResponse<RunProgress>(res);
+}
+
+export async function fetchReviewFiles(
+  id: string,
+  init?: RequestInit,
+): Promise<ReviewFilesEnvelope> {
+  const res = await fetch(`${getApiBaseUrl()}/reviews/${id}/files`, init);
+  return parseJsonResponse<ReviewFilesEnvelope>(res);
 }
 
 export async function fetchRunByEvent(

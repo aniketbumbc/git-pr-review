@@ -9,6 +9,7 @@ export function ReviewSidebar({
   review: ReviewDetail;
   onGoToRun: () => void;
 }) {
+  const hasSteps = review.steps.length > 0;
   const total = review.steps.reduce((a, s) => a + s.ms, 0);
   const retries = review.steps.reduce((a, s) => a + s.attempts.length - 1, 0);
   const retriedStep = review.steps.find((s) => s.status === "retried");
@@ -34,24 +35,30 @@ export function ReviewSidebar({
 
       <div className="flex flex-col gap-2.5 rounded-lg border border-divider bg-surface p-4">
         <span className="text-[11px] uppercase tracking-wide text-fg/45">Run</span>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-accent-500 shadow-[0_0_10px_var(--color-accent-500)]" />
-          <span className="text-[13.5px]">
-            Completed · {review.steps.length} of {review.steps.length} steps
-          </span>
-        </div>
-        <div className="flex h-[26px] items-end gap-1">
-          {review.steps.map((s) => (
-            <span
-              key={s.name}
-              className="flex-1 rounded-sm bg-accent-700"
-              style={{ height: `${Math.max(20, (s.ms / total) * 100)}%` }}
-            />
-          ))}
-        </div>
-        <span className="text-[11px] text-fg/45">
-          {wallTime} wall{retriedStep ? ` · ${retries} retries on ${retriedStep.name}` : ""}
-        </span>
+        {hasSteps ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-accent-500 shadow-[0_0_10px_var(--color-accent-500)]" />
+              <span className="text-[13.5px]">
+                Completed · {review.steps.length} of {review.steps.length} steps
+              </span>
+            </div>
+            <div className="flex h-[26px] items-end gap-1">
+              {review.steps.map((s) => (
+                <span
+                  key={s.name}
+                  className="flex-1 rounded-sm bg-accent-700"
+                  style={{ height: `${Math.max(20, (s.ms / total) * 100)}%` }}
+                />
+              ))}
+            </div>
+            <span className="text-[11px] text-fg/45">
+              {wallTime} wall{retriedStep ? ` · ${retries} retries on ${retriedStep.name}` : ""}
+            </span>
+          </>
+        ) : (
+          <span className="text-[13.5px] text-fg/60">See the Run timeline tab for live status.</span>
+        )}
         <button
           type="button"
           onClick={onGoToRun}

@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { NavBar } from "@/app/components/nav-bar";
 import { ExternalLinkIcon, GitPullRequestIcon, RefreshIcon } from "@/app/components/icons";
 import { VerdictBadge } from "@/app/dashboard/verdict-badge";
-import { getMockReviewDetail } from "./mock-data";
+import { ApiError, fetchReview } from "@/app/lib/api";
+import { toReviewDetail } from "./mock-data";
 import { ReviewDetailView } from "./review-detail-view";
 
 type ReviewPageProps = {
@@ -11,7 +13,15 @@ type ReviewPageProps = {
 
 export default async function ReviewDetailPage({ params }: ReviewPageProps) {
   const { id } = await params;
-  const review = getMockReviewDetail(id);
+
+  let apiReview;
+  try {
+    apiReview = await fetchReview(id);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) notFound();
+    throw err;
+  }
+  const review = toReviewDetail(apiReview);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
@@ -45,10 +55,6 @@ export default async function ReviewDetailPage({ params }: ReviewPageProps) {
                 <GitPullRequestIcon className="h-[15px] w-[15px] text-accent-400" />
                 {review.owner}/{review.repo}{" "}
                 <span className="text-fg/80">#{review.pullNumber}</span>
-              </span>
-              <span>@{review.author}</span>
-              <span className="font-mono text-[11.5px]">
-                {review.branch} → {review.targetBranch}
               </span>
               <span>reviewed {review.reviewedAgo}</span>
             </div>

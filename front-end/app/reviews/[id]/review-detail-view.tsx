@@ -10,14 +10,21 @@ import { ReviewSidebar } from "./review-sidebar";
 
 type TabKey = "review" | "run" | "files";
 
-const TABS: { key: TabKey; label: string; icon: typeof SparkleIcon; count: string }[] = [
-  { key: "review", label: "Review", icon: SparkleIcon, count: "" },
-  { key: "run", label: "Run timeline", icon: ListDashesIcon, count: "5" },
-  { key: "files", label: "Files", icon: FileCodeIcon, count: "8" },
+const TAB_DEFS: { key: TabKey; label: string; icon: typeof SparkleIcon }[] = [
+  { key: "review", label: "Review", icon: SparkleIcon },
+  { key: "run", label: "Run timeline", icon: ListDashesIcon },
+  { key: "files", label: "Files", icon: FileCodeIcon },
 ];
 
 export function ReviewDetailView({ review }: { review: ReviewDetail }) {
   const [tab, setTab] = useState<TabKey>("review");
+
+  const counts: Record<TabKey, string> = {
+    review: "",
+    run: "5",
+    files: String(review.changedFilesCount),
+  };
+  const TABS = TAB_DEFS.map((t) => ({ ...t, count: counts[t.key] }));
 
   return (
     <div>

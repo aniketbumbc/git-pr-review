@@ -295,6 +295,24 @@ app.get('/runs/by-event/:eventId', async (req, res) => {
   }
 });
 
+app.get('/reviews/:id/files', async (req, res) => {
+  const reviewCheck = await db.query('SELECT id FROM reviews WHERE id = $1', [
+    req.params.id,
+  ]);
+  if (reviewCheck.rows.length === 0) {
+    return res.status(404).json({ message: 'Review not found' });
+  }
+
+  const { rows } = await db.query(
+    `SELECT path, status, additions, deletions, patch
+     FROM review_files
+     WHERE review_id = $1
+     ORDER BY id`,
+    [req.params.id],
+  );
+  res.json({ data: toCamelCase(rows) });
+});
+
 app.get('/reviews/:owner/:repo/:pull_number', async (req, res) => {
   const { owner, repo } = req.params;
   const pullNumber = Number(req.params.pull_number);
