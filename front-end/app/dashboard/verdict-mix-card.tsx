@@ -1,10 +1,15 @@
-import { verdictMix } from "./mock-data";
+import type { VerdictMixItem } from "./mock-data";
 
-export function VerdictMixCard() {
+export function VerdictMixCard({ verdictMix }: { verdictMix: VerdictMixItem[] }) {
+  const hasData = verdictMix.some((m) => m.count > 0);
+
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-divider bg-surface p-4">
       <span className="text-[11px] uppercase tracking-wide text-fg/45">Verdict mix · 7 days</span>
-      {verdictMix.map((m) => (
+      {!hasData && (
+        <span className="text-xs text-fg/45">No reviews in the last 7 days</span>
+      )}
+      {hasData && verdictMix.map((m) => (
         <div key={m.label} className="flex flex-col gap-1">
           <div className="flex text-xs">
             <span className="text-fg/70">{m.label}</span>

@@ -4,6 +4,7 @@ import {
   FILTER_TO_VERDICT,
   REVIEWS_PAGE_SIZE,
   buildStats,
+  buildVerdictMix,
   repoOptions,
   verdictFilters,
 } from "./mock-data";
@@ -66,6 +67,7 @@ export default async function DashboardPage({
         initialSearch={params.search ?? ""}
         initialRepo={repo}
         stats={buildStats(reviewStats)}
+        verdictMix={buildVerdictMix(reviewStats.verdictMix)}
       />
     </div>
   );

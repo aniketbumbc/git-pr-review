@@ -12,6 +12,7 @@ import {
   toReviewViewModel,
   verdictFilters,
   type DashboardStat,
+  type VerdictMixItem,
 } from "./mock-data";
 import { StatCard } from "./stat-card";
 import { TriggerPanel } from "./trigger-panel";
@@ -66,6 +67,7 @@ type DashboardViewProps = {
   initialSearch: string;
   initialRepo: string;
   stats: DashboardStat[];
+  verdictMix: VerdictMixItem[];
 };
 
 export function DashboardView({
@@ -77,6 +79,7 @@ export function DashboardView({
   initialSearch,
   initialRepo,
   stats,
+  verdictMix,
 }: DashboardViewProps) {
   const trimmedInitialSearch = initialSearch.trim();
   const router = useRouter();
@@ -356,8 +359,8 @@ export function DashboardView({
         </div>
 
         <aside className="flex min-w-[250px] flex-[0_1_290px] flex-col gap-3.5">
-          <LiveActivityFeed />
-          <VerdictMixCard />
+          {/* <LiveActivityFeed /> */}
+          <VerdictMixCard verdictMix={verdictMix} />
         </aside>
       </div>
     </div>

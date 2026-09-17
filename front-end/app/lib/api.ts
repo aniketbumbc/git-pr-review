@@ -87,11 +87,19 @@ export type TriggerReviewResult = {
   eventId: string;
 };
 
+export type VerdictMixRow = {
+  verdict: VerdictFilter;
+  count: number;
+};
+
 export type ReviewStats = {
   reviewsLast7Days: number;
   reviewsPrev7Days: number;
   avgCriticalFixesLast7Days: number;
   avgCriticalFixesPrev7Days: number;
+  stepSuccessRate: number | null;
+  retriesToday: number;
+  verdictMix: VerdictMixRow[];
 };
 
 export class ApiError extends Error {

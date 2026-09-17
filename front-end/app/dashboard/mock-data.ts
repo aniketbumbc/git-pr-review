@@ -1,4 +1,4 @@
-import type { ApiReview, ReviewStats, VerdictFilter } from "@/app/lib/api";
+import type { ApiReview, ReviewStats, VerdictFilter, VerdictMixRow } from "@/app/lib/api";
 
 export type Verdict = VerdictFilter | "PENDING";
 
@@ -55,20 +55,6 @@ export type DashboardStat = {
   note: string;
 };
 
-// No in-flight-run tracking or step telemetry is persisted anywhere in the
-// `reviews` table (a row only exists once a run finishes), so these two stay
-// mocked until the backend adds that instrumentation.
-const RUNS_IN_FLIGHT_STAT: DashboardStat = {
-  label: "Runs in flight",
-  value: "2",
-  note: "1 retrying",
-};
-const STEP_SUCCESS_STAT: DashboardStat = {
-  label: "Step success",
-  value: "96.4%",
-  note: "6 retries today",
-};
-
 export function buildStats(reviewStats: ReviewStats): DashboardStat[] {
   const reviewsDelta = reviewStats.reviewsLast7Days - reviewStats.reviewsPrev7Days;
   const reviewsNote =
@@ -98,11 +84,23 @@ export function buildStats(reviewStats: ReviewStats): DashboardStat[] {
       value: avgCritical.toFixed(1),
       note: avgCriticalNote,
     },
-    RUNS_IN_FLIGHT_STAT,
-    STEP_SUCCESS_STAT,
+    {
+      label: "Step success",
+      value:
+        reviewStats.stepSuccessRate === null
+          ? "—"
+          : `${reviewStats.stepSuccessRate.toFixed(1)}%`,
+      note: `${reviewStats.retriesToday} retr${reviewStats.retriesToday === 1 ? "y" : "ies"} today`,
+    },
   ];
 }
 
+// Mocked — the "Live activity" card (live-activity-feed.tsx) has no backing
+// endpoint yet. There's no persisted view of in-progress runs (the `reviews`
+// table only gets a row once a run finishes), so wiring this up requires a
+// new backend endpoint that queries Inngest directly for recent/running
+// events, plus polling it client-side. The "polling 3s" badge on the card is
+// currently decorative.
 export const feed = [
   {
     icon: "spinner" as const,
@@ -131,11 +129,36 @@ export const feed = [
   },
 ];
 
-export const verdictMix = [
-  { label: "Approve", count: 21, pct: "55%", color: "var(--color-accent-500)" },
-  { label: "Request changes", count: 12, pct: "32%", color: "var(--color-warn-400)" },
-  { label: "Comment", count: 5, pct: "13%", color: "#6b7080" },
-];
+export type VerdictMixItem = {
+  label: string;
+  count: number;
+  pct: string;
+  color: string;
+};
+
+const VERDICT_MIX_META: Record<VerdictFilter, { label: string; color: string }> = {
+  APPROVE: { label: "Approve", color: "var(--color-accent-500)" },
+  REQUEST_CHANGES: { label: "Request changes", color: "var(--color-warn-400)" },
+  COMMENT: { label: "Comment", color: "#6b7080" },
+};
+
+const VERDICT_MIX_ORDER: VerdictFilter[] = ["APPROVE", "REQUEST_CHANGES", "COMMENT"];
+
+export function buildVerdictMix(rows: VerdictMixRow[]): VerdictMixItem[] {
+  const countByVerdict = new Map(rows.map((r) => [r.verdict, r.count]));
+  const total = rows.reduce((sum, r) => sum + r.count, 0);
+
+  return VERDICT_MIX_ORDER.map((verdict) => {
+    const count = countByVerdict.get(verdict) ?? 0;
+    const pct = total === 0 ? 0 : (count / total) * 100;
+    return {
+      label: VERDICT_MIX_META[verdict].label,
+      color: VERDICT_MIX_META[verdict].color,
+      count,
+      pct: `${pct.toFixed(0)}%`,
+    };
+  });
+}
 
 export const repoOptions = [
   "All repositories",

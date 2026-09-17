@@ -125,6 +125,48 @@ async function getRunProgressForEvent(eventId) {
   };
 }
 
+// Aggregates step success/retry counts across today's reviews by replaying
+// getRunProgressForEvent for each one. There's no persisted step telemetry
+// table, so this is computed on read rather than tracked as it happens.
+async function getStepSuccessStatsForToday() {
+  const { rows } = await db.query(`
+    SELECT event_id FROM reviews
+    WHERE event_id IS NOT NULL
+      AND created_at >= date_trunc('day', now())
+  `);
+
+  let succeededSteps = 0;
+  let failedSteps = 0;
+  let retriedSteps = 0;
+
+  for (const row of rows) {
+    let progress;
+    try {
+      progress = await getRunProgressForEvent(row.event_id);
+    } catch {
+      continue;
+    }
+    if (!progress) continue;
+
+    for (const step of progress.steps) {
+      if (step.status === 'succeeded' || step.status === 'retried') {
+        succeededSteps += 1;
+      } else if (step.status === 'failed') {
+        failedSteps += 1;
+      }
+      if (step.status === 'retried') {
+        retriedSteps += 1;
+      }
+    }
+  }
+
+  const totalSteps = succeededSteps + failedSteps;
+  return {
+    stepSuccessRate: totalSteps > 0 ? (succeededSteps / totalSteps) * 100 : null,
+    retriesToday: retriedSteps,
+  };
+}
+
 const app = express();
 
 const allowedOrigins = (
@@ -237,7 +279,20 @@ app.get('/reviews/stats', async (req, res) => {
     FROM reviews
   `);
 
-  res.json(toCamelCase(rows[0]));
+  const stepStats = await getStepSuccessStatsForToday();
+
+  const verdictRows = await db.query(`
+    SELECT verdict, COUNT(*)::int AS count
+    FROM reviews
+    WHERE created_at >= now() - interval '7 days'
+    GROUP BY verdict
+  `);
+
+  res.json({
+    ...toCamelCase(rows[0]),
+    ...stepStats,
+    verdictMix: toCamelCase(verdictRows.rows),
+  });
 });
 
 app.get('/reviews/:id', async (req, res) => {
