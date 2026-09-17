@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PlayIcon, RefreshIcon, SearchIcon, WarningIcon } from "@/app/components/icons";
 import { fetchReviews, type ApiReview, type ReviewsEnvelope } from "@/app/lib/api";
 import {
@@ -78,6 +79,7 @@ export function DashboardView({
   stats,
 }: DashboardViewProps) {
   const trimmedInitialSearch = initialSearch.trim();
+  const router = useRouter();
 
   const [triggerOpen, setTriggerOpen] = useState(false);
   const [filter, setFilter] = useState<(typeof verdictFilters)[number]>(initialFilter);
@@ -305,7 +307,8 @@ export function DashboardView({
                 rows.map((r) => (
                   <tr
                     key={r.id}
-                    className="border-b border-white/[0.06] transition-colors hover:bg-white/[0.02]"
+                    onClick={() => router.push(`/reviews/${r.id}`)}
+                    className="cursor-pointer border-b border-white/[0.06] transition-colors hover:bg-white/[0.02]"
                   >
                     <td className="py-2.5">
                       <div className="flex flex-col gap-0.5">
