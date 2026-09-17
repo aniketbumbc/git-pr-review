@@ -12,7 +12,7 @@ type TabKey = "review" | "run" | "files";
 
 const TABS: { key: TabKey; label: string; icon: typeof SparkleIcon; count: string }[] = [
   { key: "review", label: "Review", icon: SparkleIcon, count: "" },
-  { key: "run", label: "Run timeline", icon: ListDashesIcon, count: "4" },
+  { key: "run", label: "Run timeline", icon: ListDashesIcon, count: "5" },
   { key: "files", label: "Files", icon: FileCodeIcon, count: "8" },
 ];
 
@@ -49,7 +49,7 @@ export function ReviewDetailView({ review }: { review: ReviewDetail }) {
       <div className="flex flex-wrap items-start gap-8">
         <div className="min-w-0 flex-[1_1_560px]">
           {tab === "review" && <ReviewTab review={review} />}
-          {tab === "run" && <RunTab review={review} />}
+          {tab === "run" && <RunTab reviewId={review.id} />}
           {tab === "files" && <FilesTab review={review} onGoToReview={() => setTab("review")} />}
         </div>
 

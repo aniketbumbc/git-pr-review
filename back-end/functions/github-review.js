@@ -130,8 +130,8 @@ export const githubPullRequestReview = inngest.createFunction(
       await db.query(
         `INSERT INTO reviews
          (owner, repo, pull_number, pr_title, head_sha, changed_files_count,
-          commits_count, verdict, content, critical_fixes, suggestions)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          commits_count, verdict, content, critical_fixes, suggestions, event_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           owner,
           repo,
@@ -144,6 +144,7 @@ export const githubPullRequestReview = inngest.createFunction(
           aiAnalysisResult.result.content,
           JSON.stringify(aiAnalysisResult.result.critical_fixes ?? []),
           JSON.stringify(aiAnalysisResult.result.suggestions ?? []),
+          event.id,
         ],
       );
     });

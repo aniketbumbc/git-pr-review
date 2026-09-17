@@ -16,6 +16,36 @@ export type ApiReview = {
   criticalFixes: string[];
   suggestions: string[];
   createdAt: string;
+  eventId: string | null;
+};
+
+// Inngest's run API doesn't report step names or per-step status/output —
+// only overall run status plus a { position, attempt, at } job list. The
+// backend reconstructs a step timeline from that (see back-end/index.js),
+// so durations and "current step" here are wall-clock approximations, not
+// values Inngest reports directly.
+export type RunStatus = "Running" | "Completed" | "Failed" | "Cancelled";
+
+export type RunStepStatus = "pending" | "running" | "succeeded" | "retried" | "failed";
+
+export type RunStepAttempt = { attempt: number; at: string };
+
+export type RunStep = {
+  name: string;
+  position: number;
+  status: RunStepStatus;
+  attempts: RunStepAttempt[];
+  startedAt: string | null;
+  ms: number | null;
+};
+
+export type RunProgress = {
+  runId: string;
+  status: RunStatus;
+  startedAt: string;
+  endedAt: string | null;
+  output: unknown;
+  steps: RunStep[];
 };
 
 export type ReviewsEnvelope = {
@@ -114,6 +144,27 @@ export async function fetchReviews(
 export async function fetchReviewStats(init?: RequestInit): Promise<ReviewStats> {
   const res = await fetch(`${getApiBaseUrl()}/reviews/stats`, init);
   return parseJsonResponse<ReviewStats>(res);
+}
+
+export async function fetchReview(id: string, init?: RequestInit): Promise<ApiReview> {
+  const res = await fetch(`${getApiBaseUrl()}/reviews/${id}`, init);
+  return parseJsonResponse<ApiReview>(res);
+}
+
+export async function fetchReviewRun(
+  id: string,
+  init?: RequestInit,
+): Promise<RunProgress> {
+  const res = await fetch(`${getApiBaseUrl()}/reviews/${id}/run`, init);
+  return parseJsonResponse<RunProgress>(res);
+}
+
+export async function fetchRunByEvent(
+  eventId: string,
+  init?: RequestInit,
+): Promise<RunProgress> {
+  const res = await fetch(`${getApiBaseUrl()}/runs/by-event/${eventId}`, init);
+  return parseJsonResponse<RunProgress>(res);
 }
 
 export async function triggerReview(

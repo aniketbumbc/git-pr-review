@@ -1,41 +1,106 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDownIcon, RetryIcon } from "@/app/components/icons";
-import type { ReviewDetail, Step } from "./mock-data";
+import { fetchReviewRun, type RunProgress, type RunStep } from "@/app/lib/api";
 
-function formatDuration(ms: number): string {
+const POLL_MS = 3000;
+
+function formatDuration(ms: number | null): string {
+  if (ms == null || ms < 0) return "—";
   return ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`;
 }
 
-function dotClasses(status: Step["status"]): string {
+function formatTime(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleTimeString();
+}
+
+function dotClasses(status: RunStep["status"]): string {
   if (status === "retried") {
     return "border-[1.5px] border-warn-400 bg-bg shadow-[0_0_0_4px_rgba(201,96,31,0.16)]";
   }
+  if (status === "running") return "border-[1.5px] border-accent-500 bg-bg animate-pulse";
+  if (status === "failed") return "bg-warn-500 shadow-[0_0_10px_rgba(201,96,31,0.6)]";
   if (status === "pending") return "border-[1.5px] border-dashed border-white/25";
   return "bg-accent-500 shadow-[0_0_10px_rgba(79,187,125,0.6)]";
 }
 
-export function RunTab({ review }: { review: ReviewDetail }) {
-  const [openStep, setOpenStep] = useState(2);
+export function RunTab({ reviewId }: { reviewId: string }) {
+  const [run, setRun] = useState<RunProgress | null>(null);
+  const [lastPolledAt, setLastPolledAt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [openStep, setOpenStep] = useState(-1);
 
-  const total = review.steps.reduce((a, s) => a + s.ms, 0);
-  const offsets = review.steps.reduce<number[]>((acc, s, i) => {
-    acc.push(i === 0 ? 0 : acc[i - 1] + review.steps[i - 1].ms);
-    return acc;
-  }, []);
-  const steps = review.steps.map((s, i) => {
-    return {
-      ...s,
-      left: (offsets[i] / total) * 100,
-      width: Math.max(1.5, (s.ms / total) * 100),
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    async function poll() {
+      try {
+        const progress = await fetchReviewRun(reviewId);
+        if (cancelled) return;
+        setRun(progress);
+        setLastPolledAt(Date.now());
+        setError(null);
+        if (progress.status === "Running") {
+          timer = setTimeout(poll, POLL_MS);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Run history unavailable");
+      }
+    }
+
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
     };
-  });
+  }, [reviewId]);
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-divider bg-surface p-4 text-[13px] text-fg/60">
+        Run history unavailable — {error}. Make sure the Inngest dev server is running
+        (<code className="font-mono text-accent-300">pnpm start-inngest</code>) and this review
+        has a recorded run.
+      </div>
+    );
+  }
+
+  if (!run) {
+    return <div className="text-[13px] text-fg/45">Loading run…</div>;
+  }
+
+  const wallMs = run.endedAt
+    ? new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime()
+    : lastPolledAt - new Date(run.startedAt).getTime();
+  const attemptsTotal = run.steps.reduce((a, s) => a + s.attempts.length, 0);
+  const retriedCount = run.steps.filter((s) => s.status === "retried").length;
+  const doneCount = run.steps.filter(
+    (s) => s.status === "succeeded" || s.status === "retried",
+  ).length;
+
+  const runStats = [
+    { label: "Wall time", value: formatDuration(wallMs), note: run.status },
+    {
+      label: "Steps",
+      value: `${doneCount} / ${run.steps.length}`,
+      note: run.status === "Running" ? "in progress" : "checkpointed",
+    },
+    {
+      label: "Attempts",
+      value: String(attemptsTotal),
+      note: retriedCount ? `${retriedCount} retried` : "no retries",
+    },
+    { label: "Run ID", value: run.runId.slice(0, 10), note: run.status },
+  ];
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2.5">
-        {review.runStats.map((st) => (
+        {runStats.map((st) => (
           <div
             key={st.label}
             className="min-w-[132px] flex-1 rounded-lg border border-divider bg-surface px-3.5 py-3"
@@ -51,17 +116,17 @@ export function RunTab({ review }: { review: ReviewDetail }) {
         <div className="mb-1.5 flex items-baseline gap-2.5">
           <h6 className="m-0 text-[11px] uppercase tracking-wide text-accent-500">Step timeline</h6>
           <span className="font-mono text-[11px] text-fg/45">
-            github/pull_request.review · {steps.length} steps ·{" "}
-            {steps.reduce((a, s) => a + s.attempts.length, 0)} attempts
+            github/pull_request.review · {run.steps.length} steps · {attemptsTotal} attempts
           </span>
         </div>
         <div className="mb-4 text-xs text-fg/45">
-          Durable execution — each step is checkpointed, so a retry resumes here instead of
-          re-running the function.
+          Live from Inngest — step names come from the function&apos;s known step order, and
+          durations are approximated from job-schedule timestamps, since Inngest&apos;s API doesn&apos;t
+          expose per-step names or output directly.
         </div>
 
         <div className="flex flex-col">
-          {steps.map((step, i) => {
+          {run.steps.map((step, i) => {
             const open = openStep === i;
             return (
               <div key={step.name} className="flex gap-4">
@@ -94,35 +159,34 @@ export function RunTab({ review }: { review: ReviewDetail }) {
                     />
                   </button>
 
-                  <div className="relative h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                    <span
-                      className="absolute inset-y-0 rounded-full bg-gradient-to-r from-accent-700 to-accent-500"
-                      style={{ left: `${step.left}%`, width: `${step.width}%` }}
-                    />
-                  </div>
-
                   {open && (
                     <div className="mt-3 flex flex-col gap-3 rounded-lg bg-surface/70 px-4 py-3.5 shadow-sm">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-[10px] uppercase tracking-wide text-fg/45">Attempts</span>
+                        {step.attempts.length === 0 && (
+                          <span className="py-1.5 text-xs text-fg/40">Not reached yet.</span>
+                        )}
                         {step.attempts.map((a) => (
                           <div
-                            key={a.n}
+                            key={a.attempt}
                             className="flex items-center gap-3 border-b border-white/[0.07] py-1.5 font-mono text-xs last:border-b-0"
                           >
-                            <span className="w-[22px] text-fg/45">#{a.n}</span>
-                            <span className="min-w-0 flex-1 text-fg/80">{a.result}</span>
-                            <span className="text-fg/50">{a.dur}</span>
-                            <span className="text-fg/35">{a.at}</span>
+                            <span className="w-[22px] text-fg/45">#{a.attempt}</span>
+                            <span className="min-w-0 flex-1 text-fg/45">scheduled</span>
+                            <span className="text-fg/50">{formatTime(a.at)}</span>
                           </div>
                         ))}
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <span className="text-[10px] uppercase tracking-wide text-fg/45">Step output</span>
-                        <pre className="m-0 overflow-x-auto rounded-md bg-black/30 px-3 py-2.5 font-mono text-[11.5px] leading-relaxed text-fg/75">
-                          {step.output}
-                        </pre>
-                      </div>
+                      {i === run.steps.length - 1 && run.output != null && (
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[10px] uppercase tracking-wide text-fg/45">
+                            Run output
+                          </span>
+                          <pre className="m-0 overflow-x-auto rounded-md bg-black/30 px-3 py-2.5 font-mono text-[11.5px] leading-relaxed text-fg/75">
+                            {JSON.stringify(run.output, null, 2)}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
