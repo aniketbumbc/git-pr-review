@@ -201,7 +201,7 @@ export function DashboardView({
         <div className="min-w-0 flex-[1_1_380px]">
           <h1 className="m-0 text-2xl font-medium tracking-tight">PR reviews</h1>
           <p className="mt-1.5 text-[13.5px] text-fg/55">
-            Every review is one durable Inngest run — pending results are honest, not hidden.
+            Every review is one durable Inngest run — pending results are honest, not hidden Test.
           </p>
         </div>
         <div className="flex gap-2">
