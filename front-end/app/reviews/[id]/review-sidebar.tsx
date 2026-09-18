@@ -73,7 +73,7 @@ export function ReviewSidebar({
         <span className="text-[11px] uppercase tracking-wide text-fg/45">Posted comment</span>
         <p className="m-0 text-[12.5px] leading-relaxed text-fg/65">
           Review posted to GitHub as{" "}
-          <span className="font-mono text-[11.5px] text-accent-300">sentry-review[bot]</span>{" "}
+          <span className="font-mono text-[11.5px] text-accent-300">auto-reviewpr[bot]</span>{" "}
           {review.postedCommentAgo}.
         </p>
         <a href="#" className="flex items-center gap-1.5 self-start text-[13px] text-accent-300 hover:text-accent-200">

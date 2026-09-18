@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sentry Review",
+  title: "Auto ReviewPR",
   description: "PR review runs, powered by Inngest",
 };
 
