@@ -15,6 +15,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd ~/projects/autoreviewpr
+            cd ~/projects/git-pr-review
             git pull origin main
             docker compose up -d --build
