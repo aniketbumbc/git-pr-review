@@ -18,8 +18,11 @@ services:
       args:
         NEXT_PUBLIC_API_BASE_URL: https://api.autoreviewpr.com
     container_name: "pr-review-client"
+    environment:
+      - HOSTNAME=0.0.0.0       # Next.js standalone (node server.js) binds to this — must be 0.0.0.0, not the container IP
+      - PORT=3000              # keep standalone on 3000
     expose:
-      - "3000"                 # CONFIRM: Next.js default is 3000
+      - "3000"
     depends_on:
       - backend
     restart: unless-stopped
