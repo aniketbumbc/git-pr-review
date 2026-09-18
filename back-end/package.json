@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
     "dev": "node --watch index.js",
     "db:migrate": "node db/migrate.js",
     "start-inngest": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest"

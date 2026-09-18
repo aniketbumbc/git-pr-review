@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ./back-end
+    container_name: "pr-review-api"
+    env_file:
+      - ./back-end/.env
+    expose:
+      - "3000"                 # matches app.listen(3000) in back-end/index.js
+    restart: unless-stopped
+    networks:
+      - default                # private to pr-review (becomes pr-review_default)
+      - web                    # only so Caddy can proxy to it
+
+  frontend:
+    build:
+      context: ./front-end
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://api.autoreviewpr.com
+    container_name: "pr-review-client"
+    expose:
+      - "3000"                 # CONFIRM: Next.js default is 3000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - default
+      - web
+
+networks:
+  web:
+    external: true
