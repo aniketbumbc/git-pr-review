@@ -12,9 +12,9 @@ export function VerdictBadge({ verdict }: { verdict: Verdict }) {
   }
 
   const styles: Record<Exclude<Verdict, "PENDING">, string> = {
-    APPROVE: "border border-divider text-fg/70",
+    APPROVE: "border border-accent-500/60 text-accent-400",
     REQUEST_CHANGES: "border border-warn-400 text-warn-300",
-    COMMENT: "border border-divider bg-white/[0.04] text-fg/60",
+    COMMENT: "border border-[#6b7080]/60 text-[#9497a3]",
   };
 
   const labels: Record<Exclude<Verdict, "PENDING">, string> = {

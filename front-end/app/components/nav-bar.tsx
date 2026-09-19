@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const NAV_ITEMS = [
   { label: "Dashboard", key: "dashboard", href: "/dashboard" },
-  { label: "Runs", key: "runs", href: "/dashboard" },
+  { label: "Runs", key: "runs", href: "/runs" },
   { label: "Repos", key: "repos", href: null },
   { label: "Settings", key: "settings", href: null },
 ] as const;

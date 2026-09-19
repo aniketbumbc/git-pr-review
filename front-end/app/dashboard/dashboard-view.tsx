@@ -327,7 +327,7 @@ export function DashboardView({
                   <tr
                     key={r.id}
                     onClick={() => router.push(`/reviews/${r.id}`)}
-                    className="cursor-pointer border-b border-white/[0.06] transition-colors hover:bg-white/[0.02]"
+                    className="cursor-pointer border-b border-white/[0.06] transition-colors hover:bg-accent-500/20"
                   >
                     <td className="py-2.5">
                       <div className="flex flex-col gap-0.5">
