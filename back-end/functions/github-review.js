@@ -3,6 +3,28 @@ import { octokit } from '../lib/github.js';
 import { db } from '../lib/db.js';
 import { run } from '@openai/agents';
 import { prReviewAgent } from '../agents/github-pr-review-agents.js';
+import { recordStepStart, recordStepSuccess, recordStepFailure } from '../lib/step-tracking.js';
+
+// Inngest replays the whole function from the top on every retry, but only
+// actually re-invokes a step's callback when that step hasn't yet completed
+// successfully — already-memoized steps are skipped entirely. So the start/
+// success/failure recording has to live *inside* the callback passed to
+// step.run, not wrapped around step.run itself, otherwise it would fire on
+// every replay (including for steps that already succeeded), not just on
+// genuine attempts.
+async function trackedStep(step, eventId, position, name, fn) {
+  return step.run(name, async () => {
+    await recordStepStart(eventId, position, name);
+    try {
+      const result = await fn();
+      await recordStepSuccess(eventId, position);
+      return result;
+    } catch (err) {
+      await recordStepFailure(eventId, position);
+      throw err;
+    }
+  });
+}
 
 export const githubPullRequestReview = inngest.createFunction(
   {
@@ -15,7 +37,10 @@ export const githubPullRequestReview = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { owner, repo, pull_number } = event.data;
-    const pullRequestInfo = await step.run(
+    const pullRequestInfo = await trackedStep(
+      step,
+      event.id,
+      0,
       'fetch-pull-request-info',
       async () => {
         const { data } = await octokit.rest.pulls.get({
@@ -54,7 +79,10 @@ export const githubPullRequestReview = inngest.createFunction(
       };
     }
 
-    const changes = await step.run(
+    const changes = await trackedStep(
+      step,
+      event.id,
+      1,
       'fetch-changes-in-pull-request',
       async () => {
         const changesResult = await octokit.paginate(
@@ -88,7 +116,10 @@ export const githubPullRequestReview = inngest.createFunction(
     }
     // Ai analysis of the changes
 
-    const aiAnalysisResult = await step.run(
+    const aiAnalysisResult = await trackedStep(
+      step,
+      event.id,
+      2,
       'ai-analysis-of-changes',
       async () => {
         const llmResult = await run(
@@ -109,7 +140,7 @@ export const githubPullRequestReview = inngest.createFunction(
 
     // write comment on the pull request
 
-    await step.run('post-comment', async () => {
+    await trackedStep(step, event.id, 3, 'post-comment', async () => {
       const result = await octokit.rest.pulls.createReview({
         owner,
         repo,
@@ -126,7 +157,7 @@ export const githubPullRequestReview = inngest.createFunction(
       });
     });
 
-    await step.run('save-review-to-db', async () => {
+    await trackedStep(step, event.id, 4, 'save-review-to-db', async () => {
       const client = await db.connect();
       try {
         await client.query('BEGIN');

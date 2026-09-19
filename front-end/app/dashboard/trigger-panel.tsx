@@ -1,12 +1,40 @@
 "use client";
 
 import { useState } from "react";
-import { PaperPlaneIcon } from "@/app/components/icons";
+import { PaperPlaneIcon, SpinnerIcon, WarningIcon } from "@/app/components/icons";
+import { ApiError, triggerReview } from "@/app/lib/api";
 
-export function TriggerPanel() {
+type TriggerPanelProps = {
+  onTriggered?: (eventId: string) => void;
+};
+
+export function TriggerPanel({ onTriggered }: TriggerPanelProps) {
   const [owner, setOwner] = useState("acme");
   const [repo, setRepo] = useState("checkout-api");
   const [prNumber, setPrNumber] = useState("418");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sentEventId, setSentEventId] = useState<string | null>(null);
+
+  const pullNumber = Number(prNumber);
+  const isValid = owner.trim() !== "" && repo.trim() !== "" && Number.isInteger(pullNumber) && pullNumber > 0;
+
+  async function handleSend() {
+    if (!isValid || sending) return;
+
+    setSending(true);
+    setError(null);
+    setSentEventId(null);
+    try {
+      const result = await triggerReview({ owner: owner.trim(), repo: repo.trim(), pullNumber });
+      setSentEventId(result.eventId);
+      onTriggered?.(result.eventId);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to send event");
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div className="mb-[22px] flex flex-col gap-3 rounded-lg border border-divider bg-surface p-4 shadow-sm">
@@ -32,12 +60,29 @@ export function TriggerPanel() {
         />
         <button
           type="button"
-          className="flex h-9 items-center gap-1.5 rounded-md bg-accent-500 px-3.5 text-[13px] font-medium text-accent-900 transition-colors hover:bg-accent-400"
+          onClick={handleSend}
+          disabled={!isValid || sending}
+          className="flex h-9 items-center gap-1.5 rounded-md bg-accent-500 px-3.5 text-[13px] font-medium text-accent-900 transition-colors hover:bg-accent-400 disabled:opacity-50"
         >
-          <PaperPlaneIcon className="h-3.5 w-3.5" />
-          Send event
+          {sending ? (
+            <SpinnerIcon className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <PaperPlaneIcon className="h-3.5 w-3.5" />
+          )}
+          {sending ? "Sending…" : "Send event"}
         </button>
       </div>
+      {error && (
+        <div className="flex items-center gap-2 text-[12.5px] text-warn-300">
+          <WarningIcon className="h-3.5 w-3.5 flex-none" />
+          <span>{error}</span>
+        </div>
+      )}
+      {!error && sentEventId && (
+        <div className="font-mono text-[12px] text-fg/50">
+          Event sent · {sentEventId}
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { inngest } from './inggest/client.js';
 import { functions } from './functions/index.js';
 import { db } from './lib/db.js';
 import { toCamelCase } from './lib/case.js';
+import { fetchStepHistory } from './lib/step-tracking.js';
 
 const triggerReviewSchema = z.object({
   owner: z.string().min(1),
@@ -26,9 +27,8 @@ const reviewsQuerySchema = z.object({
 });
 
 // The Inngest function runs these steps strictly in sequence (no branching,
-// no parallel steps), so a job's queue "position" maps 1:1 to this list.
-// Inngest's REST API doesn't expose step names/output directly — see
-// getRunProgressForEvent below for what it actually gives us.
+// no parallel steps), so a step's position here maps 1:1 to the "position"
+// column written in review_run_steps by lib/step-tracking.js.
 const REVIEW_STEP_NAMES = [
   'fetch-pull-request-info',
   'fetch-changes-in-pull-request',
@@ -75,66 +75,34 @@ async function inngestApiFetch(path) {
   return res.json();
 }
 
-// Inngest's /jobs endpoint only reports { position, attempt, at } per job —
-// no step name, status, or output. We reconstruct a step timeline from that:
-// - a position reached before the current frontier must have succeeded
-//   (the function only advances past a step once it completes)
-// - the frontier position's status follows the overall run status
-// - a step's approximate duration is the gap to the next step's first
-//   attempt (or the run's end time, for the last step) — a wall-clock proxy,
-//   not an exact per-step duration, since Inngest doesn't expose that either.
+// Run-level status/timestamps/output still come from Inngest's REST API —
+// those are accurate for a completed run. But Inngest's /jobs endpoint only
+// reflects the live execution queue, which is empty once a run finishes, so
+// per-step history is read from our own review_run_steps table instead (see
+// lib/step-tracking.js, written by the function itself as it executes).
 async function getRunProgressForEvent(eventId) {
   const runsBody = await inngestApiFetch(`/v1/events/${eventId}/runs`);
   const run = runsBody.data?.[0];
   if (!run) return null;
 
-  const jobsBody = await inngestApiFetch(`/v1/runs/${run.run_id}/jobs`);
-  const jobs = jobsBody.data ?? [];
-
-  const attemptsByPosition = new Map();
-  for (const job of jobs) {
-    const list = attemptsByPosition.get(job.position) ?? [];
-    list.push(job);
-    attemptsByPosition.set(job.position, list);
-  }
-
-  const positionsReached = [...attemptsByPosition.keys()];
-  const maxPosition = positionsReached.length
-    ? Math.max(...positionsReached)
-    : -1;
+  const stepRows = await fetchStepHistory(eventId);
+  const stepsByPosition = new Map(stepRows.map((row) => [row.position, row]));
 
   const steps = REVIEW_STEP_NAMES.map((name, position) => {
-    const attempts = (attemptsByPosition.get(position) ?? [])
-      .slice()
-      .sort((a, b) => a.attempt - b.attempt)
-      .map((a) => ({ attempt: a.attempt + 1, at: a.at }));
-
-    let status;
-    if (position > maxPosition) {
-      status = 'pending';
-    } else if (position < maxPosition) {
-      status = attempts.length > 1 ? 'retried' : 'succeeded';
-    } else if (run.status === 'Completed') {
-      status = attempts.length > 1 ? 'retried' : 'succeeded';
-    } else if (run.status === 'Running') {
-      status = 'running';
-    } else {
-      status = 'failed';
+    const row = stepsByPosition.get(position);
+    if (!row) {
+      return { name, position, status: 'pending', attempts: [], startedAt: null, ms: null };
     }
 
-    return { name, position, status, attempts };
-  });
-
-  const stepsWithDuration = steps.map((step, i) => {
-    const startedAt = step.attempts[0]?.at ?? null;
-    const nextStartedAt = steps[i + 1]?.attempts[0]?.at ?? null;
-    const endedAt =
-      nextStartedAt ?? (i === maxPosition ? run.ended_at : null);
+    const attempts = row.attempts.map((a) => ({ attempt: a.attempt, at: a.at }));
+    const startedAt = row.started_at;
+    const endedAt = row.status === 'running' ? new Date().toISOString() : row.ended_at;
     const ms =
       startedAt && endedAt
         ? new Date(endedAt).getTime() - new Date(startedAt).getTime()
         : null;
-    return { ...step, startedAt, ms };
+
+    return { name, position, status: row.status, attempts, startedAt, ms };
   });
 
   return {
@@ -143,7 +111,7 @@ async function getRunProgressForEvent(eventId) {
     startedAt: run.run_started_at,
     endedAt: run.ended_at,
     output: run.output ?? null,
-    steps: stepsWithDuration,
+    steps,
   };
 }
 

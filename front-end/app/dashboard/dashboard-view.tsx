@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PlayIcon, RefreshIcon, SearchIcon, WarningIcon } from "@/app/components/icons";
-import { fetchReviews, type ApiReview, type ReviewsEnvelope } from "@/app/lib/api";
+import { RunTimeline } from "@/app/components/run-timeline";
+import { fetchReviews, fetchRunByEvent, type ApiReview, type ReviewsEnvelope } from "@/app/lib/api";
 import {
   FILTER_TO_VERDICT,
   REVIEWS_PAGE_SIZE,
@@ -85,6 +86,7 @@ export function DashboardView({
   const router = useRouter();
 
   const [triggerOpen, setTriggerOpen] = useState(false);
+  const [activeEventId, setActiveEventId] = useState<string | null>(null);
   const [filter, setFilter] = useState<(typeof verdictFilters)[number]>(initialFilter);
   const [searchInput, setSearchInput] = useState(trimmedInitialSearch);
   const [debouncedSearch, setDebouncedSearch] = useState(trimmedInitialSearch);
@@ -225,7 +227,20 @@ export function DashboardView({
         </div>
       </div>
 
-      {triggerOpen && <TriggerPanel />}
+      {triggerOpen && <TriggerPanel onTriggered={setActiveEventId} />}
+
+      {activeEventId && (
+        <div className="mb-[22px] rounded-lg border border-divider bg-surface p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="text-[11px] uppercase tracking-wide text-fg/45">Live run</span>
+            <span className="ml-auto font-mono text-[11px] text-fg/40">{activeEventId}</span>
+          </div>
+          <RunTimeline
+            pollKey={activeEventId}
+            fetchProgress={() => fetchRunByEvent(activeEventId)}
+          />
+        </div>
+      )}
 
       <div className="mb-6 flex flex-wrap gap-2.5">
         {stats.map((s) => (
