@@ -75,17 +75,26 @@ async function inngestApiFetch(path) {
   return res.json();
 }
 
-// Run-level status/timestamps/output still come from Inngest's REST API —
-// those are accurate for a completed run. But Inngest's /jobs endpoint only
-// reflects the live execution queue, which is empty once a run finishes, so
-// per-step history is read from our own review_run_steps table instead (see
-// lib/step-tracking.js, written by the function itself as it executes).
+// Run-level status/timestamps/output preferably come from Inngest's REST
+// API, and per-step history always comes from our own review_run_steps
+// table (Inngest's /jobs endpoint only reflects the live execution queue,
+// which is empty once a run finishes — see lib/step-tracking.js). Inngest's
+// dev server doesn't persist event/run history across restarts, though, so
+// if it no longer knows about this event, we fall back to deriving the run
+// summary entirely from our own step data instead of failing outright.
 async function getRunProgressForEvent(eventId) {
-  const runsBody = await inngestApiFetch(`/v1/events/${eventId}/runs`);
-  const run = runsBody.data?.[0];
-  if (!run) return null;
-
   const stepRows = await fetchStepHistory(eventId);
+
+  let run = null;
+  try {
+    const runsBody = await inngestApiFetch(`/v1/events/${eventId}/runs`);
+    run = runsBody.data?.[0] ?? null;
+  } catch {
+    run = null;
+  }
+
+  if (!run && stepRows.length === 0) return null;
+
   const stepsByPosition = new Map(stepRows.map((row) => [row.position, row]));
 
   const steps = REVIEW_STEP_NAMES.map((name, position) => {
@@ -105,12 +114,33 @@ async function getRunProgressForEvent(eventId) {
     return { name, position, status: row.status, attempts, startedAt, ms };
   });
 
+  if (run) {
+    return {
+      runId: run.run_id,
+      status: run.status,
+      startedAt: run.run_started_at,
+      endedAt: run.ended_at,
+      output: run.output ?? null,
+      steps,
+    };
+  }
+
+  // Inngest has no record of this event anymore — derive everything from
+  // our own step history instead.
+  const anyFailed = steps.some((s) => s.status === 'failed');
+  const allSettled = steps.every(
+    (s) => s.status === 'succeeded' || s.status === 'retried' || s.status === 'failed',
+  );
+  const endedTimestamps = stepRows.map((r) => r.ended_at).filter(Boolean);
+
   return {
-    runId: run.run_id,
-    status: run.status,
-    startedAt: run.run_started_at,
-    endedAt: run.ended_at,
-    output: run.output ?? null,
+    runId: eventId,
+    status: anyFailed && allSettled ? 'Failed' : allSettled ? 'Completed' : 'Running',
+    startedAt: steps.find((s) => s.startedAt)?.startedAt ?? null,
+    endedAt: endedTimestamps.length
+      ? new Date(Math.max(...endedTimestamps.map((d) => new Date(d).getTime()))).toISOString()
+      : null,
+    output: null,
     steps,
   };
 }

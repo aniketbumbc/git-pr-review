@@ -181,4 +181,4 @@ export const FILTER_TO_VERDICT: Record<
   Comment: "COMMENT",
 };
 
-export const REVIEWS_PAGE_SIZE = 20;
+export const REVIEWS_PAGE_SIZE = 5;

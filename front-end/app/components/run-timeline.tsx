@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDownIcon, RetryIcon } from "@/app/components/icons";
+import { ChevronDownIcon, RetryIcon, SpinnerIcon } from "@/app/components/icons";
 import type { RunProgress, RunStep } from "@/app/lib/api";
 
 const POLL_MS = 3000;
@@ -65,6 +65,7 @@ function LoadingStepper() {
   }, []);
 
   return (
+    <div className="">
     <div className="flex flex-col">
       {LOADING_STEP_NAMES.map((name, i) => (
         <div key={name} className="flex gap-4">
@@ -90,6 +91,7 @@ function LoadingStepper() {
         </div>
       ))}
     </div>
+    </div>
   );
 }
 
@@ -98,9 +100,13 @@ type RunTimelineProps = {
   // effect dependency so switching targets restarts the poll loop.
   pollKey: string;
   fetchProgress: () => Promise<RunProgress>;
+  // Only the dashboard's live-run panel wants the animated placeholder
+  // stepper while waiting for the first poll; the reviews page just wants
+  // the real timeline once it loads.
+  showLoadingStepper?: boolean;
 };
 
-export function RunTimeline({ pollKey, fetchProgress }: RunTimelineProps) {
+export function RunTimeline({ pollKey, fetchProgress, showLoadingStepper = false }: RunTimelineProps) {
   const [run, setRun] = useState<RunProgress | null>(null);
   const [lastPolledAt, setLastPolledAt] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +167,14 @@ export function RunTimeline({ pollKey, fetchProgress }: RunTimelineProps) {
   }
 
   if (!run) {
-    return <LoadingStepper />;
+    if (showLoadingStepper) {
+      return <LoadingStepper />;
+    }
+    return (
+      <div className="flex items-center justify-center pt-16">
+        <SpinnerIcon className="h-8 w-8 text-accent-500" />
+      </div>
+    );
   }
 
   const wallMs = run.endedAt

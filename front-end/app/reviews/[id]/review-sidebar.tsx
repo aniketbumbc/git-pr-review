@@ -17,7 +17,7 @@ export function ReviewSidebar({
     total >= 1000 ? `${(total / 1000).toFixed(1)}s` : `${total}ms`;
 
   return (
-    <aside className="flex min-w-[250px] flex-[0_1_296px] flex-col gap-3.5">
+    <aside className="flex min-w-0 flex-col gap-3.5">
       <div className="flex flex-col gap-3 rounded-lg border border-divider bg-surface p-4">
         <span className="text-[11px] uppercase tracking-wide text-fg/45">Verdict</span>
         <VerdictBadge verdict={review.verdict} />

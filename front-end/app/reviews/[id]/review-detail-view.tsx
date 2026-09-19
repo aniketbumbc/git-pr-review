@@ -53,8 +53,8 @@ export function ReviewDetailView({ review }: { review: ReviewDetail }) {
         })}
       </div>
 
-      <div className="flex flex-wrap items-start gap-8">
-        <div className="min-w-0 flex-[1_1_560px]">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,1fr)_296px]">
+        <div className="min-w-0">
           {tab === "review" && <ReviewTab review={review} />}
           {tab === "run" && <RunTab reviewId={review.id} />}
           {tab === "files" && <FilesTab review={review} onGoToReview={() => setTab("review")} />}

@@ -22,7 +22,7 @@ import { LiveActivityFeed } from "./live-activity-feed";
 import { VerdictMixCard } from "./verdict-mix-card";
 
 const SEARCH_DEBOUNCE_MS = 300;
-const SKELETON_ROW_COUNT = 6;
+const SKELETON_ROW_COUNT = 5;
 
 function SkeletonRow() {
   return (
@@ -100,7 +100,6 @@ export function DashboardView({
   const [limit, setLimit] = useState(initialLimit);
   const [offset, setOffset] = useState(initialOffset);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,29 +161,29 @@ export function DashboardView({
     return () => controller.abort();
   }, [loadReviews]);
 
-  async function handleLoadMore() {
-    setLoadingMore(true);
+  async function goToPage(page: number) {
+    setLoading(true);
     setError(null);
     try {
-      const envelope = await loadReviews(offset + limit, limit);
-      setRows((prev) => [...prev, ...envelope.data.map(toReviewViewModel)]);
+      const envelope = await loadReviews((page - 1) * REVIEWS_PAGE_SIZE, REVIEWS_PAGE_SIZE);
+      setRows(envelope.data.map(toReviewViewModel));
       setTotal(envelope.total);
+      setLimit(envelope.limit);
       setOffset(envelope.offset);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load more reviews");
+      setError(err instanceof Error ? err.message : "Failed to load reviews");
     } finally {
-      setLoadingMore(false);
+      setLoading(false);
     }
   }
 
-  // Re-fetches exactly what's currently on screen (same filters, same row
-  // count) without resetting scroll position, filters, or pagination.
+  // Re-fetches exactly what's currently on screen (same filters, same page)
+  // without resetting scroll position, filters, or pagination.
   async function handleRefresh() {
     setRefreshing(true);
     setError(null);
     try {
-      const windowSize = Math.min(100, Math.max(rows.length, limit));
-      const envelope = await loadReviews(0, windowSize);
+      const envelope = await loadReviews(offset, limit);
       setRows(envelope.data.map(toReviewViewModel));
       setTotal(envelope.total);
       setOffset(envelope.offset);
@@ -195,7 +194,8 @@ export function DashboardView({
     }
   }
 
-  const hasMore = offset + rows.length < total;
+  const currentPage = Math.floor(offset / REVIEWS_PAGE_SIZE) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / REVIEWS_PAGE_SIZE));
 
   return (
     <div className="mx-auto max-w-[1240px] px-8 pb-16">
@@ -238,6 +238,7 @@ export function DashboardView({
           <RunTimeline
             pollKey={activeEventId}
             fetchProgress={() => fetchRunByEvent(activeEventId)}
+            showLoadingStepper
           />
         </div>
       )}
@@ -344,9 +345,7 @@ export function DashboardView({
                     <td className="py-2.5 text-right text-xs text-fg/45">{r.when}</td>
                   </tr>
                 ))}
-              {loadingMore &&
-                Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={`more-${i}`} />)}
-              {!loading && !loadingMore && rows.length === 0 && (
+              {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-[13px] text-fg/40">
                     No reviews match this filter.
@@ -358,18 +357,29 @@ export function DashboardView({
 
           <div className="mt-4 flex items-center gap-3 text-xs text-fg/45">
             <span>
-              Showing {rows.length} of {total} reviews
+              Showing {rows.length === 0 ? 0 : offset + 1}–{offset + rows.length} of {total} reviews
             </span>
-            {hasMore && (
+            <div className="ml-auto flex items-center gap-2.5">
               <button
                 type="button"
-                onClick={handleLoadMore}
-                disabled={loadingMore}
-                className="ml-auto rounded-md border border-divider px-3 py-1.5 text-[12.5px] text-fg/70 transition-colors hover:border-fg/25 disabled:opacity-50"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={loading || currentPage <= 1}
+                className="rounded-md border border-divider px-3 py-1.5 text-[12.5px] text-fg/70 transition-colors hover:border-fg/25 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {loadingMore ? "Loading…" : "Load more"}
+                Prev
               </button>
-            )}
+              <span className="font-mono text-[12px] text-fg/55">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={loading || currentPage >= totalPages}
+                className="rounded-md border border-divider px-3 py-1.5 text-[12.5px] text-fg/70 transition-colors hover:border-fg/25 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
 
