@@ -3,7 +3,11 @@ import { octokit } from '../lib/github.js';
 import { db } from '../lib/db.js';
 import { run } from '@openai/agents';
 import { prReviewAgent } from '../agents/github-pr-review-agents.js';
-import { recordStepStart, recordStepSuccess, recordStepFailure } from '../lib/step-tracking.js';
+import {
+  recordStepStart,
+  recordStepSuccess,
+  recordStepFailure,
+} from '../lib/step-tracking.js';
 
 // Inngest replays the whole function from the top on every retry, but only
 // actually re-invokes a step's callback when that step hasn't yet completed
@@ -25,7 +29,6 @@ async function trackedStep(step, eventId, position, name, fn) {
     }
   });
 }
-
 export const githubPullRequestReview = inngest.createFunction(
   {
     id: 'github-pull-request-review',
