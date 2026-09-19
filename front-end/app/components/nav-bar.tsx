@@ -23,7 +23,7 @@ export function NavBar({ active }: { active: NavKey }) {
           return (
             <span
               key={item.key}
-              className={`cursor-default text-[13px] ${isActive ? "text-accent-400" : "text-fg/60"}`}
+              className={`cursor-pointer text-[13px] ${isActive ? "text-accent-400" : "text-fg/60"}`}
             >
               {item.label}
             </span>
