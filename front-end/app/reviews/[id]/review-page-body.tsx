@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLinkIcon, GitPullRequestIcon, RefreshIcon } from "@/app/components/icons";
+import { ExternalLinkIcon, GitPullRequestIcon } from "@/app/components/icons";
 import { VerdictBadge } from "@/app/dashboard/verdict-badge";
 import type { ReviewDetail } from "./mock-data";
 import { ReviewDetailView } from "./review-detail-view";
@@ -40,15 +40,10 @@ export function ReviewPageBody({ review }: { review: ReviewDetail }) {
           </div>
         </div>
         <div className="flex gap-2 pt-1.5">
-          <button
-            type="button"
-            className="flex h-9 items-center gap-1.5 rounded-md border border-divider px-3.5 text-[13px] text-fg/80 transition-colors hover:border-fg/25"
-          >
-            <RefreshIcon className="h-[15px] w-[15px]" />
-            Re-run review
-          </button>
           <a
-            href="#"
+            href={`https://github.com/${review.owner}/${review.repo}/pull/${review.pullNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex h-9 items-center gap-1.5 rounded-md bg-accent-500 px-3.5 text-[13px] font-medium text-accent-900 transition-colors hover:bg-accent-400"
           >
             <ExternalLinkIcon className="h-[15px] w-[15px]" />

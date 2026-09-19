@@ -12,39 +12,41 @@ type NavKey = (typeof NAV_ITEMS)[number]["key"];
 
 export function NavBar({ active }: { active: NavKey }) {
   return (
-    <div className="flex items-center gap-6 px-8 py-3.5 max-w-[1240px] mx-auto">
-      <div className="flex items-center gap-2.5 mr-auto">
-        <div className="h-4 w-4 rounded-[3px] border border-accent-500 shadow-[0_0_12px_rgba(79,187,125,0.45)]" />
-        <span className="font-medium text-[15px] tracking-tight">Auto ReviewPR</span>
-      </div>
-      {NAV_ITEMS.map((item) => {
-        const isActive = item.key === active;
+    <header>
+      <div className="flex items-center gap-6 px-8 py-3.5 max-w-[1240px] mx-auto">
+        <div className="flex items-center gap-2.5 mr-auto">
+          <div className="h-4 w-4 rounded-[3px] border border-accent-500 shadow-[0_0_12px_rgba(79,187,125,0.45)]" />
+          <span className="font-medium text-[15px] tracking-tight text-accent-400">Auto ReviewPR</span>
+        </div>
+        {NAV_ITEMS.map((item) => {
+          const isActive = item.key === active;
 
-        if (!item.href) {
+          if (!item.href) {
+            return (
+              <span
+                key={item.key}
+                className={`cursor-pointer text-[13px] ${isActive ? "text-accent-400" : "text-fg/60"}`}
+              >
+                {item.label}
+              </span>
+            );
+          }
+
           return (
-            <span
+            <Link
               key={item.key}
-              className={`cursor-pointer text-[13px] ${isActive ? "text-accent-400" : "text-fg/60"}`}
+              href={item.href}
+              className={
+                isActive
+                  ? "cursor-pointer text-[13px] text-accent-400"
+                  : "cursor-pointer text-[13px] text-fg/60 transition-colors hover:text-fg"
+              }
             >
               {item.label}
-            </span>
+            </Link>
           );
-        }
-
-        return (
-          <Link
-            key={item.key}
-            href={item.href}
-            className={
-              isActive
-                ? "cursor-pointer text-[13px] text-accent-400"
-                : "cursor-pointer text-[13px] text-fg/60 transition-colors hover:text-fg"
-            }
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </div>
+        })}
+      </div>
+    </header>
   );
 }
