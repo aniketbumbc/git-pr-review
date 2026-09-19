@@ -84,7 +84,11 @@ export function PipelineFlow() {
               >
                 {step.label}
               </span>
-              <span className="mt-0.5 block px-1 text-[11px] leading-snug text-fg/45">
+              <span
+                className={`mt-0.5 block px-1 text-[11px] leading-snug transition-colors duration-500 ${
+                  isActive || isDone ? "text-fg/65" : "text-fg/35"
+                }`}
+              >
                 {step.detail}
               </span>
             </div>

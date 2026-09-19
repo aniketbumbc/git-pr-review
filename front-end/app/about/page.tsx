@@ -28,7 +28,7 @@ export default function AboutPage() {
           <h6 className="m-0 text-[11px] uppercase tracking-wide text-accent-500">
             What it is
           </h6>
-          <p className="mt-2.5 max-w-[72ch] text-[13.5px] leading-relaxed text-fg/70">
+          <p className="mt-2.5 text-[13.5px] leading-relaxed text-fg/70">
             The bot listens for a &quot;review this PR&quot; event — either a real GitHub
             webhook or a manual trigger from this dashboard — pulls the pull request&apos;s
             info and diff straight from GitHub, sends it to an AI agent for review, and
