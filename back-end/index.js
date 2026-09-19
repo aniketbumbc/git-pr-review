@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import { z } from 'zod';
@@ -40,6 +41,27 @@ const INNGEST_BASE_URL = (
   process.env.INNGEST_BASE_URL || 'http://localhost:8288'
 ).replace(/\/$/, '');
 const INNGEST_SIGNING_KEY = process.env.INNGEST_SIGNING_KEY;
+const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET;
+
+const PULL_REQUEST_ACTIONS_TO_REVIEW = ['opened', 'reopened', 'synchronize'];
+
+function isValidGithubSignature(req) {
+  const signature = req.get('x-hub-signature-256');
+  if (!signature || !GITHUB_WEBHOOK_SECRET || !req.rawBody) return false;
+
+  const expected =
+    'sha256=' +
+    crypto
+      .createHmac('sha256', GITHUB_WEBHOOK_SECRET)
+      .update(req.rawBody)
+      .digest('hex');
+
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (signatureBuffer.length !== expectedBuffer.length) return false;
+
+  return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+}
 
 async function inngestApiFetch(path) {
   const res = await fetch(`${INNGEST_BASE_URL}${path}`, {
@@ -174,9 +196,41 @@ const allowedOrigins = (
 ).split(',');
 
 app.use(cors({ origin: allowedOrigins }));
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 
 app.use('/api/inngest', serve({ client: inngest, functions }));
+
+app.post('/webhooks/github', async (req, res) => {
+  if (!isValidGithubSignature(req)) {
+    return res.status(401).json({ message: 'Invalid signature' });
+  }
+
+  if (req.get('x-github-event') !== 'pull_request') {
+    return res.status(200).json({ message: 'Event ignored' });
+  }
+
+  const { action, number, repository } = req.body;
+  if (!PULL_REQUEST_ACTIONS_TO_REVIEW.includes(action)) {
+    return res.status(200).json({ message: 'Action ignored' });
+  }
+
+  const { ids } = await inngest.send({
+    name: 'github/pull_request.review',
+    data: {
+      owner: repository.owner.login,
+      repo: repository.name,
+      pull_number: number,
+    },
+  });
+
+  res.status(202).json({ message: 'Review triggered', eventId: ids[0] });
+});
 
 app.post('/reviews/trigger', async (req, res) => {
   const parsed = triggerReviewSchema.safeParse(req.body);
