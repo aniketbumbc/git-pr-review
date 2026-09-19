@@ -9,9 +9,9 @@ type TriggerPanelProps = {
 };
 
 export function TriggerPanel({ onTriggered }: TriggerPanelProps) {
-  const [owner, setOwner] = useState("acme");
-  const [repo, setRepo] = useState("checkout-api");
-  const [prNumber, setPrNumber] = useState("418");
+  const [owner, setOwner] = useState("");
+  const [repo, setRepo] = useState("");
+  const [prNumber, setPrNumber] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sentEventId, setSentEventId] = useState<string | null>(null);
@@ -45,17 +45,25 @@ export function TriggerPanel({ onTriggered }: TriggerPanelProps) {
         </span>
       </div>
       <div className="flex flex-wrap items-end gap-2.5">
-        <Field label="Owner" value={owner} onChange={setOwner} className="flex-[1_1_150px]" />
+        <Field
+          label="Owner"
+          value={owner}
+          onChange={setOwner}
+          placeholder="e.g. acme"
+          className="flex-[1_1_150px]"
+        />
         <Field
           label="Repository"
           value={repo}
           onChange={setRepo}
+          placeholder="e.g. checkout-api"
           className="flex-[1_1_180px]"
         />
         <Field
           label="PR number"
           value={prNumber}
           onChange={setPrNumber}
+          placeholder="e.g. 418"
           className="flex-[0_1_110px]"
         />
         <button
@@ -91,11 +99,13 @@ function Field({
   label,
   value,
   onChange,
+  placeholder,
   className,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
   className?: string;
 }) {
   return (
@@ -106,6 +116,7 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
       />
     </label>
   );
