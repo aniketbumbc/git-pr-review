@@ -147,14 +147,15 @@ async function getRunProgressForEvent(eventId) {
   };
 }
 
-// Aggregates step success/retry counts across today's reviews by replaying
-// getRunProgressForEvent for each one. There's no persisted step telemetry
-// table, so this is computed on read rather than tracked as it happens.
-async function getStepSuccessStatsForToday() {
+// Aggregates step success/retry counts across the last 7 days of reviews by
+// replaying getRunProgressForEvent for each one. There's no persisted step
+// telemetry table, so this is computed on read rather than tracked as it
+// happens.
+async function getStepSuccessStatsForLast7Days() {
   const { rows } = await db.query(`
     SELECT event_id FROM reviews
     WHERE event_id IS NOT NULL
-      AND created_at >= date_trunc('day', now())
+      AND created_at >= now() - interval '7 days'
   `);
 
   let succeededSteps = 0;
@@ -185,7 +186,7 @@ async function getStepSuccessStatsForToday() {
   const totalSteps = succeededSteps + failedSteps;
   return {
     stepSuccessRate: totalSteps > 0 ? (succeededSteps / totalSteps) * 100 : null,
-    retriesToday: retriedSteps,
+    retriesLast7Days: retriedSteps,
   };
 }
 
@@ -333,7 +334,7 @@ app.get('/reviews/stats', async (req, res) => {
     FROM reviews
   `);
 
-  const stepStats = await getStepSuccessStatsForToday();
+  const stepStats = await getStepSuccessStatsForLast7Days();
 
   const verdictRows = await db.query(`
     SELECT verdict, COUNT(*)::int AS count

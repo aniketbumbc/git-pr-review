@@ -85,12 +85,12 @@ export function buildStats(reviewStats: ReviewStats): DashboardStat[] {
       note: avgCriticalNote,
     },
     {
-      label: "Step success",
+      label: "Step success · 7 days",
       value:
         reviewStats.stepSuccessRate === null
           ? "—"
           : `${reviewStats.stepSuccessRate.toFixed(1)}%`,
-      note: `${reviewStats.retriesToday} retr${reviewStats.retriesToday === 1 ? "y" : "ies"} today`,
+      note: `${reviewStats.retriesLast7Days} retr${reviewStats.retriesLast7Days === 1 ? "y" : "ies"} in 7 days`,
     },
   ];
 }

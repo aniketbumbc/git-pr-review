@@ -98,7 +98,7 @@ export type ReviewStats = {
   avgCriticalFixesLast7Days: number;
   avgCriticalFixesPrev7Days: number;
   stepSuccessRate: number | null;
-  retriesToday: number;
+  retriesLast7Days: number;
   verdictMix: VerdictMixRow[];
 };
 
