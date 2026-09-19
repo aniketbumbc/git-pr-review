@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", key: "dashboard", href: "/dashboard" },
-  { label: "Runs", key: "runs", href: "/runs" },
-  { label: "Repos", key: "repos", href: null },
-  { label: "Settings", key: "settings", href: null },
+  { label: "Dashboard", key: "dashboard", href: "/dashboard" as string | null },
+  { label: "Runs", key: "runs", href: "/runs" as string | null },
+  { label: "About", key: "about", href: "/about" as string | null },
+  // { label: "Repos", key: "repos", href: null },
+  // { label: "Settings", key: "settings", href: null },
 ] as const;
 
 type NavKey = (typeof NAV_ITEMS)[number]["key"];
