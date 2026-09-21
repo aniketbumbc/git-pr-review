@@ -312,6 +312,13 @@ app.get('/reviews', async (req, res) => {
   });
 });
 
+app.get('/owners', async (req, res) => {
+  const { rows } = await db.query(
+    'SELECT DISTINCT owner, repo FROM reviews ORDER BY owner, repo',
+  );
+  res.json({ data: toCamelCase(rows) });
+});
+
 app.get('/reviews/stats', async (req, res) => {
   const { rows } = await db.query(`
     SELECT

@@ -82,6 +82,15 @@ export type TriggerReviewParams = {
   pullNumber: number;
 };
 
+export type OwnerRepoPair = {
+  owner: string;
+  repo: string;
+};
+
+export type OwnersEnvelope = {
+  data: OwnerRepoPair[];
+};
+
 export type TriggerReviewResult = {
   message: string;
   eventId: string;
@@ -185,6 +194,11 @@ export async function fetchReviewFiles(
 ): Promise<ReviewFilesEnvelope> {
   const res = await fetch(`${getApiBaseUrl()}/reviews/${id}/files`, init);
   return parseJsonResponse<ReviewFilesEnvelope>(res);
+}
+
+export async function fetchOwnerRepoPairs(init?: RequestInit): Promise<OwnersEnvelope> {
+  const res = await fetch(`${getApiBaseUrl()}/owners`, init);
+  return parseJsonResponse<OwnersEnvelope>(res);
 }
 
 export async function fetchRunByEvent(
