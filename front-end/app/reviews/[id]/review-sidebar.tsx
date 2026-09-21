@@ -76,7 +76,12 @@ export function ReviewSidebar({
           <span className="font-mono text-[11.5px] text-accent-300">auto-reviewpr[bot]</span>{" "}
           {review.postedCommentAgo}.
         </p>
-        <a href="#" className="flex items-center gap-1.5 self-start text-[13px] text-accent-300 hover:text-accent-200">
+        <a
+          href={`https://github.com/${review.owner}/${review.repo}/pull/${review.pullNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 self-start text-[13px] text-accent-300 hover:text-accent-200"
+        >
           <ExternalLinkIcon className="h-3.5 w-3.5" />
           View on GitHub
         </a>

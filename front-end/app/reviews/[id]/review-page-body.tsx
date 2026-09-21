@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLinkIcon, GitPullRequestIcon } from "@/app/components/icons";
+import { ArrowLeftIcon, ExternalLinkIcon, GitPullRequestIcon } from "@/app/components/icons";
 import { VerdictBadge } from "@/app/dashboard/verdict-badge";
 import type { ReviewDetail } from "./mock-data";
 import { ReviewDetailView } from "./review-detail-view";
@@ -7,7 +7,14 @@ import { ReviewDetailView } from "./review-detail-view";
 export function ReviewPageBody({ review }: { review: ReviewDetail }) {
   return (
     <div className="mx-auto max-w-[1240px] px-8 pb-16">
-      <div className="my-4 flex items-center gap-2 text-xs text-fg/45">
+      <Link
+        href="/dashboard"
+        className="mt-4 inline-flex items-center gap-1.5 text-xs text-accent-400 transition-colors hover:text-accent-300"
+      >
+        <ArrowLeftIcon className="h-3.5 w-3.5" />
+        Back to dashboard
+      </Link>
+      <div className="mb-4 mt-2 flex items-center gap-2 text-xs text-fg/45">
         <Link href="/dashboard" className="hover:text-fg/70">
           Reviews
         </Link>
